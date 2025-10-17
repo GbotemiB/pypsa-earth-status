@@ -64,7 +64,7 @@ def plot_carrier_capacity_comparison(installed_capacity_df, optimal_capacity_df,
     # Filter for the chosen carrier
     installed_capacity_df = installed_capacity_df[installed_capacity_df['carrier'] == carrier]
     optimal_capacity_df = optimal_capacity_df[optimal_capacity_df['carrier'] == carrier]
-    reference_capacity_df = installed_capacity_df[installed_capacity_df['carrier'] == carrier]
+    reference_capacity_df = optimal_capacity_df[optimal_capacity_df['carrier'] == carrier]
 
     # Merge the dataframes
     capacity_df = pd.merge(installed_capacity_df[['region', 'network_capacity']],
