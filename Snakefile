@@ -52,6 +52,7 @@ rule build_network_geojson:
         network_existing="resources/reference_statistics/network_exist.geojson",
         network_planned="resources/reference_statistics/network_planned.geojson",
         network_model="resources/network_statistics/network_model.geojson",
+        network_full="resources/network_statistics/network_full.geojson",
     log:
         "logs/build_network_geojson.log",
     script:
@@ -101,6 +102,7 @@ rule make_comparison:
         # energy_dispatch_network="resources/network_statistics/energy_dispatch.csv",
         # network_network="resources/network_statistics/network.geojson",
         network_geojson_network="resources/network_statistics/network_model.geojson",
+        network_full_geojson="resources/network_statistics/network_full.geojson",
         demand_reference="resources/reference_statistics/demand.csv",
         installed_capacity_reference="resources/reference_statistics/installed_capacity.csv",
         # energy_dispatch_reference="resources/reference_statistics/energy_dispatch.geojson"
@@ -110,6 +112,7 @@ rule make_comparison:
         installed_capacity_comparison="results/tables/installed_capacity.csv",
         optimal_capacity_comparison="results/tables/optimal_capacity.csv",
         network_comparison_geojson="results/network_comparison.geojson",
+        network_full_geojson="results/network_full.geojson",
         # energy_dispatch_comparison="results/tables/energy_dispatch.geojson"
         # network_comparison="results/tables/network.geojson"
     log:

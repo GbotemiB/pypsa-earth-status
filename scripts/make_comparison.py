@@ -132,6 +132,10 @@ def make_comparison(inputs, outputs):
         model_path=inputs["network_geojson_network"],
         output_path=outputs["network_comparison_geojson"]
     )
+    
+    # Copy the full network GeoJSON to results folder
+    import shutil
+    shutil.copy(inputs["network_full_geojson"], outputs["network_full_geojson"])
 
 if __name__ == "__main__":
     if "snakemake" not in globals():

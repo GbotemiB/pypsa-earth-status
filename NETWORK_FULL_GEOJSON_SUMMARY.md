@@ -1,0 +1,233 @@
+# Full Network GeoJSON Export - Implementation Summary
+
+## Overview
+Added functionality to export **all internal network lines** from a PyPSA network model to a GeoJSON file, not just cross-border connections. This provides a complete view of the network topology with all transmission lines.
+
+## Problem Statement
+The previous implementation only exported **cross-border lines** (connections between different countries/regions). For a single-country network like Bolivia, this resulted in an **empty GeoJSON file** because there were no international connections. However, the network contains 9 internal transmission lines that needed to be visualized.
+
+## Solution
+Created a new function `export_full_network_to_geojson()` that exports all lines from the PyPSA network without aggregation or filtering, preserving the complete network topology.
+
+---
+
+## Changes Made
+
+### 1. Snakefile
+**Location:** `/Snakefile`
+
+#### In `build_network_geojson` rule:
+Added new output for the full network GeoJSON:
+```yaml
+output:
+    network_existing="resources/reference_statistics/network_exist.geojson",
+    network_planned="resources/reference_statistics/network_planned.geojson",
+    network_model="resources/network_statistics/network_model.geojson",
+    network_full="resources/network_statistics/network_full.geojson",  # NEW
+```
+
+#### In `make_comparison` rule:
+Added input and output for copying the full network to results:
+```yaml
+input:
+    # ... existing inputs ...
+    network_full_geojson="resources/network_statistics/network_full.geojson",  # NEW
+
+output:
+    # ... existing outputs ...
+    network_full_geojson="results/network_full.geojson",  # NEW
+```
+
+### 2. build_network_geojson.py
+**Location:** `/scripts/build_network_geojson.py`
+
+#### Added new function:
+```python
+def export_full_network_to_geojson(network, output_path):
+    """
+    Export ALL lines from a PyPSA network to a GeoJSON file (not aggregated).
+    This includes all internal lines within the network, preserving the original
+    network topology.
+    """
+```
+
+This function exports comprehensive line properties:
+- `name` - Line identifier
+- `bus0`, `bus1` - Connected buses
+- `s_nom` - Nominal capacity (MW)
+- `s_nom_opt` - Optimized capacity (MW)
+- `length` - Line length (km)
+- `r` - Resistance (Ohm)
+- `x` - Reactance (Ohm)
+- `type` - Line type/technology
+
+#### Updated main execution:
+```python
+# PyPSA Full network GeoJSON (all internal lines, not aggregated)
+export_full_network_to_geojson(n_model, output_full)
+```
+
+### 3. make_comparison.py
+**Location:** `/scripts/make_comparison.py`
+
+Added code to copy the full network GeoJSON to the results folder:
+```python
+# Copy the full network GeoJSON to results folder
+import shutil
+shutil.copy(inputs["network_full_geojson"], outputs["network_full_geojson"])
+```
+
+---
+
+## Output Files
+
+The workflow now generates **three types of network GeoJSON files**:
+
+### 1. `network_model.geojson` (Aggregated Cross-Border)
+- **Location:** `resources/network_statistics/` and (optionally) `results/`
+- **Content:** Only cross-border lines between different countries/regions
+- **Lines aggregated:** Yes, by country/region pairs
+- **Bolivia network:** Empty (no cross-border connections)
+
+### 2. `network_full.geojson` (Complete Network) ✨ **NEW**
+- **Location:** `resources/network_statistics/` and `results/`
+- **Content:** All transmission lines in the network
+- **Lines aggregated:** No, shows actual network topology
+- **Bolivia network:** 9 lines with full details
+- **Use case:** Network visualization, topology analysis, detailed line properties
+
+### 3. `network_comparison.geojson` (Comparison Ratios)
+- **Location:** `results/`
+- **Content:** Ratios comparing model vs reference networks
+- **Properties:** `s_nom_ratio`, `length_ratio`
+
+---
+
+## Example Data
+
+### Sample Line from network_full.geojson:
+```json
+{
+  "type": "Feature",
+  "properties": {
+    "name": "0",
+    "bus0": "BO0 0",
+    "bus1": "BO0 3",
+    "s_nom": 2903.53,
+    "s_nom_opt": 2903.53,
+    "length": 246.53,
+    "r": 4.33,
+    "x": 35.47,
+    "type": "Al/St 240/40 4-bundle 380.0"
+  },
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [[-67.81394, -16.53701], [-66.380625, -17.663605]]
+  }
+}
+```
+
+### Network Statistics (Bolivia BO_2020):
+- **Total lines:** 9
+- **Total buses:** 30
+- **File size:** 3.6 KB
+- **Format:** Standard GeoJSON FeatureCollection
+- **CRS:** EPSG:4326 (WGS84)
+
+---
+
+## Usage
+
+### Run the complete workflow:
+```bash
+conda activate pypsa-earth-latest
+snakemake -j1 visualize_data
+```
+
+### Run just network GeoJSON generation:
+```bash
+conda activate pypsa-earth-latest
+snakemake -j1 build_network_geojson
+```
+
+### Run comparison (includes copying to results):
+```bash
+conda activate pypsa-earth-latest
+snakemake -j1 make_comparison
+```
+
+---
+
+## File Locations
+
+### Source Files (Generated by build_network_geojson):
+- `resources/network_statistics/network_model.geojson` - Cross-border only (empty for single-country)
+- `resources/network_statistics/network_full.geojson` - **All lines** ✨
+
+### Results Files (Easy access for analysis):
+- `results/network_comparison.geojson` - Comparison ratios
+- `results/network_full.geojson` - **Complete network topology** ✨
+
+---
+
+## Visualization
+
+The GeoJSON file can be visualized using:
+- **QGIS** - Open as vector layer
+- **Online viewers** - geojson.io, mapshaper.org
+- **Python** - geopandas, folium, plotly
+- **JavaScript** - Leaflet, Mapbox, deck.gl
+
+### Quick Python visualization example:
+```python
+import geopandas as gpd
+import matplotlib.pyplot as plt
+
+# Read the GeoJSON
+gdf = gpd.read_file('results/network_full.geojson')
+
+# Plot the network
+fig, ax = plt.subplots(figsize=(12, 8))
+gdf.plot(ax=ax, linewidth=gdf['s_nom']/500, color='blue', alpha=0.6)
+ax.set_title('PyPSA Network - All Transmission Lines')
+plt.show()
+
+# Print line details
+print(f"Total lines: {len(gdf)}")
+print(gdf[['name', 'bus0', 'bus1', 's_nom', 'length']].head())
+```
+
+---
+
+## Key Differences
+
+| Feature | network_model.geojson | network_full.geojson |
+|---------|----------------------|---------------------|
+| **Lines included** | Cross-border only | All lines |
+| **Aggregation** | By country/region | None (original topology) |
+| **Bolivia network** | Empty (0 lines) | 9 lines |
+| **Use case** | International comparison | Network topology visualization |
+| **Properties** | Basic (s_nom, length) | Comprehensive (s_nom, s_nom_opt, r, x, type) |
+
+---
+
+## Technical Notes
+
+1. **Coordinates:** Uses bus x/y coordinates from the PyPSA network
+2. **Line geometry:** Simple LineString between bus coordinates (straight lines)
+3. **Capacity units:** MW for s_nom and s_nom_opt
+4. **Length units:** km
+5. **Electrical properties:** Resistance (r) and reactance (x) in Ohm
+6. **Line types:** Preserved from PyPSA network metadata
+
+---
+
+## Testing
+
+Successfully tested with:
+- **Network:** Bolivia 2020 (`elec_s_10_ec_lcopt_Co2L-24h.nc`)
+- **Lines:** 9 transmission lines
+- **Buses:** 30 buses
+- **Output:** 3.6 KB GeoJSON file with all line details
+
+All workflow steps completed successfully with proper file generation and no errors.

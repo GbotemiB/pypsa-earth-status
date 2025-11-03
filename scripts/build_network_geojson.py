@@ -262,6 +262,52 @@ def export_network_lines_to_geojson(network, output_path):
     gdf.to_file(output_path, driver="GeoJSON")
 
 
+def export_full_network_to_geojson(network, output_path):
+    """
+    Export ALL lines from a PyPSA network to a GeoJSON file (not aggregated).
+    This includes all internal lines within the network, preserving the original
+    network topology.
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        The PyPSA network containing line and bus data with coordinates.
+    output_path : str
+        Path to the output GeoJSON file.
+    """
+    if network.lines.empty:
+        with open(output_path, 'w') as f:
+            pass
+        return
+    
+    features = []
+
+    for name, line in network.lines.iterrows():
+        bus0 = network.buses.loc[line['bus0']]
+        bus1 = network.buses.loc[line['bus1']]
+
+        # Geometry as a LineString between bus coordinates
+        geometry = LineString([(bus0['x'], bus0['y']), (bus1['x'], bus1['y'])])
+
+        # Line properties to include - more comprehensive than aggregated version
+        properties = {
+            "name": name,
+            "bus0": line['bus0'],
+            "bus1": line['bus1'],
+            "s_nom": line.get('s_nom', None),
+            "s_nom_opt": line.get('s_nom_opt', None),
+            "length": line.get('length', None),
+            "r": line.get('r', None),
+            "x": line.get('x', None),
+            "type": line.get('type', None),
+        }
+
+        features.append({"geometry": geometry, "properties": properties})
+
+    gdf = gpd.GeoDataFrame.from_features(features, crs="EPSG:4326")
+    gdf.to_file(output_path, driver="GeoJSON")
+
+
 if __name__ == "__main__":
     if "snakemake" not in globals():
         from helpers import mock_snakemake
@@ -281,6 +327,7 @@ if __name__ == "__main__":
     output_exist = snakemake.output["network_existing"]
     output_plan = snakemake.output["network_planned"]
     output_model = snakemake.output["network_model"]
+    output_full = snakemake.output["network_full"]
 
     # Existing network GeoJSON
     df_exist = pd.read_csv(lineexist, encoding="ISO-8859-1")
@@ -294,9 +341,12 @@ if __name__ == "__main__":
     agg_plan = aggregate_cross_country_lines(n_plan, buscodes, region_shapefile=shapefile)
     export_network_lines_to_geojson(agg_plan, output_plan)
 
-    # PyPSA Modeled network GeoJSON
+    # PyPSA Modeled network GeoJSON (aggregated cross-border lines only)
     n_model = pypsa.Network(network_path)
     n_model = update_line_lengths_from_geometry(n_model)
     agg_model = aggregate_cross_country_lines(n_model, buscodes, region_shapefile=shapefile)
     export_network_lines_to_geojson(agg_model, output_model)
+    
+    # PyPSA Full network GeoJSON (all internal lines, not aggregated)
+    export_full_network_to_geojson(n_model, output_full)
     
