@@ -10,4 +10,4 @@
 - [ ] Code and workflow changes are sufficiently documented, including updates to docstrings for meaningful functions.
 - [ ] Newly introduced dependencies are added to `envs/environment.yaml`.
 - [ ] Changes in configuration options are added in all of `config.yaml`.
-- [ ] A note for the release notes `doc/release_notes.rst` is amended in the format of previous release notes, including reference to the requested PR.
+- [ ] A note for the release notes `doc/release-notes.md` is amended in the format of previous release notes, including reference to the requested PR.

@@ -1,0 +1,176 @@
+# SPDX-FileCopyrightText: PyPSA-Earth and PyPSA-Eur Authors
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+site_name: PyPSA-Earth-Status Documentation
+site_url: !ENV READTHEDOCS_CANONICAL_URL
+repo_url: https://github.com/pypsa-meets-earth/pypsa-earth-status
+repo_name: pypsa-earth-status
+edit_uri: edit/main/doc/
+
+# Documentation directory
+docs_dir: doc
+
+# Watch additional directories for live reload
+watch:
+- doc
+- scripts
+
+# Navigation
+nav:
+- Home:
+  - Home: index.md
+  - Introduction: home/introduction.md
+  - Installation: home/installation.md
+  - Quick Start: home/quick-start.md
+
+- User Guide:
+  - Overview: user-guide/user-guide.md
+  - Structure: user-guide/structure.md
+  - Release notes: release-notes.md
+
+- Community:
+  - How to join: community/contributing.md
+
+- API Reference:
+  - Overview: api-reference/api-reference.md
+  - Data Cleaning: api-reference/data-cleaning.md
+  - Creation of Reference Data: api-reference/reference-data.md
+  - Reading of Model Data: api-reference/model-data.md
+  - Comparison and Plotting: api-reference/comparison.md
+
+
+# Theme settings
+theme:
+  name: material
+  logo: https://github.com/pypsa-meets-earth/pypsa-meets-earth.github.io/raw/main/assets/img/logo.png
+  favicon: https://github.com/pypsa-meets-earth/pypsa-meets-earth.github.io/raw/main/assets/img/logo.png
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+  - navigation.tabs
+  - navigation.tabs.sticky
+  - navigation.sections
+  - navigation.tracking
+  - navigation.indexes
+  - navigation.top
+  - header.autohide
+  - content.action.edit
+  - content.action.view
+  - content.code.copy
+  - toc.follow
+  - search.suggest
+  - search.highlight
+  - search.share
+  - announce.dismiss
+
+  palette:
+  - media: "(prefers-color-scheme: light)"
+    scheme: default
+    primary: indigo
+    accent: indigo
+    toggle:
+      icon: material/weather-sunny
+      name: Switch to dark mode
+  - media: "(prefers-color-scheme: dark)"
+    scheme: slate
+    primary: indigo
+    accent: indigo
+    toggle:
+      icon: material/weather-night
+      name: Switch to light mode
+
+extra_css:
+- assets/stylesheets/extra.css
+
+extra_javascript:
+- assets/javascripts/mathjax.js
+- https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+- assets/javascripts/mermaid-init.js
+
+hooks:
+- doc/assets/hooks/cleanup.py
+
+markdown_extensions:
+  # Standard Extensions
+- admonition
+- pymdownx.details
+- pymdownx.superfences:
+    custom_fences:
+    - name: mermaid
+      class: mermaid
+      format: !!python/name:pymdownx.superfences.fence_code_format
+- md_in_html
+- toc:
+    title: On this page
+    permalink: true
+    toc_depth: 4
+- footnotes
+
+  # PyMdown Extensions
+- pymdownx.arithmatex:
+    generic: true
+- pymdownx.tabbed:
+    alternate_style: true
+- pymdownx.emoji:
+    emoji_index: !!python/name:material.extensions.emoji.twemoji
+    emoji_generator: !!python/name:material.extensions.emoji.to_svg
+- pymdownx.caret
+- pymdownx.tilde
+- pymdownx.mark
+- pymdownx.highlight:
+    anchor_linenums: true
+    line_spans: __span
+    pygments_lang_class: true
+- pymdownx.inlinehilite
+- pymdownx.snippets:
+    base_path: ['.', 'doc']
+    auto_append:
+    - includes/abbreviations.md
+- abbr
+- attr_list
+- def_list
+- tables
+
+plugins:
+- search
+- git-revision-date-localized:
+    type: timeago
+    timezone: UTC
+    enable_creation_date: true
+- mkdocstrings:
+    enabled: true
+    default_handler: python
+    handlers:
+      python:
+        options:
+          docstring_style: sphinx
+          show_source: false
+          show_root_heading: true
+          show_root_full_path: false
+          show_symbol_type_heading: true
+          show_symbol_type_toc: true
+          members_order: source
+          group_by_category: true
+- table-reader:
+    data_path: "doc"
+    allow_missing_files: false
+- autorefs
+# Global redirects
+- redirects:
+    redirect_maps:
+      'user-guide/release-notes.md': 'release-notes.md'
+      'changelog.md': 'release-notes.md'
+      'whats-new.md': 'release-notes.md'
+
+extra:
+  social:
+  - icon: fontawesome/brands/github
+    link: https://github.com/pypsa-meets-earth/pypsa-earth-status
+  - icon: fontawesome/brands/discord
+    link: https://discord.gg/AnuJBk23FU
+  - icon: fontawesome/brands/google
+    link: https://drive.google.com/drive/folders/1U7fgktbxlaGzWxT2C0-Xv-_ffWCxAKZz
+  version:
+    provider: mike
