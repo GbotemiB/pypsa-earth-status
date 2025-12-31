@@ -2,6 +2,15 @@
 
 ## Upcoming release
 
+### New Features and Major Changes
+
+* 
+
+### Minor Changes and bug-fixing
+
+* 
+
+## Version v0.0.1 - Initial Release
 
 ### New Features and Major Changes
 
