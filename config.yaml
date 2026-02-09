@@ -10,7 +10,8 @@ datasets:
   # network: []  # list of datasets sources to validate networks. Not yet supported
 
 network_validation:
-  network_path: "resources/example_DE.nc" # File to the PyPSA network file to validate
+  network_path: "networks/elec_s_10_ec_lcopt_Co2L-24h.nc" # File to the PyPSA network file to validate
   year: [2021]  # year of the network to validate
-  countries: ['DE', 'FR']  # country of the network to validate
+  countries: ['BO']  # country of the network to validate
   shapefile: False
+  validate_cross_border_capacity: true # validation of cross border capacity

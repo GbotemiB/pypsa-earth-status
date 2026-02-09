@@ -160,6 +160,8 @@ def aggregate_cross_country_lines(network, buscodes_path, region_shapefile=False
     agg_network : pypsa.Network
         New PyPSA network with aggregated buses and trans-region lines only.
     """
+
+
     buses = network.buses.copy()
 
     # Load and filter buscodes with national-level entries only (ending in XX)
@@ -277,26 +279,36 @@ if __name__ == "__main__":
     network_path = snakemake.input["network_path"]
     shapefile = snakemake.params["shapefile"]
     country_list = snakemake.params["countries"]
+    validate_cross_border_capacity = snakemake.params.get("validate_cross_border_capacity", True)
 
     output_exist = snakemake.output["network_existing"]
     output_plan = snakemake.output["network_planned"]
     output_model = snakemake.output["network_model"]
 
     # Existing network GeoJSON
-    df_exist = pd.read_csv(lineexist, encoding="ISO-8859-1")
-    n_exist = build_network(df_exist, buscodes, country_list)
-    agg_exist = aggregate_cross_country_lines(n_exist, buscodes, region_shapefile=shapefile)
-    export_network_lines_to_geojson(agg_exist, output_exist)
+    if validate_cross_border_capacity:
+        df_exist = pd.read_csv(lineexist, encoding="ISO-8859-1")
+        n_exist = build_network(df_exist, buscodes, country_list)
+        agg_exist = aggregate_cross_country_lines(n_exist, buscodes, region_shapefile=shapefile)
+        export_network_lines_to_geojson(agg_exist, output_exist)
+    else:
+        export_network_lines_to_geojson(pypsa.Network(), output_exist)
 
     # Planned network GeoJSON
-    df_plan = pd.read_csv(lineplan, encoding="ISO-8859-1")
-    n_plan = build_network(df_plan, buscodes, country_list, year=2040)
-    agg_plan = aggregate_cross_country_lines(n_plan, buscodes, region_shapefile=shapefile)
-    export_network_lines_to_geojson(agg_plan, output_plan)
+    if validate_cross_border_capacity:
+        df_plan = pd.read_csv(lineplan, encoding="ISO-8859-1")
+        n_plan = build_network(df_plan, buscodes, country_list, year=2040)
+        agg_plan = aggregate_cross_country_lines(n_plan, buscodes, region_shapefile=shapefile)
+        export_network_lines_to_geojson(agg_plan, output_plan)
+    else:
+        export_network_lines_to_geojson(pypsa.Network(), output_plan)
 
     # PyPSA Modeled network GeoJSON
     n_model = pypsa.Network(network_path)
-    n_model = update_line_lengths_from_geometry(n_model)
-    agg_model = aggregate_cross_country_lines(n_model, buscodes, region_shapefile=shapefile)
-    export_network_lines_to_geojson(agg_model, output_model)
+    if not n_model.lines.empty:
+        n_model = update_line_lengths_from_geometry(n_model)
+        agg_model = aggregate_cross_country_lines(n_model, buscodes, region_shapefile=shapefile)
+        export_network_lines_to_geojson(agg_model, output_model)
+    else:
+        export_network_lines_to_geojson(pypsa.Network(), output_model)
     

@@ -48,6 +48,7 @@ rule build_network_geojson:
     params:
         countries=config["network_validation"]["countries"],
         shapefile=config["network_validation"].get("shapefile", False),
+        validate_cross_border_capacity=config["network_validation"].get("validate_cross_border_capacity", True),
     output:
         network_existing="resources/reference_statistics/network_exist.geojson",
         network_planned="resources/reference_statistics/network_planned.geojson",
