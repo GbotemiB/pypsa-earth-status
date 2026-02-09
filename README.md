@@ -26,7 +26,7 @@ Regional and domain expertise is crucial for interpreting energy statistics and 
 ### Ways to contribute
 1. Flag existing validation needs by opening issues and joining discussions in [PyPSA-meets-Earth Discord](https://discord.gg/AnuJBk23FU) 
 2. Suggest improvements by opening issues and pull requests to this repository
-3. Contribute non-code insights filling out [this form](https://docs.google.com/forms/d/1udHf6W34YI0UNg3iwQs_-oeKsyj-dzJOtETZ_-RSUhw/edit) 
+3. Contribute non-code insights filling out [this form](https://docs.google.com/forms/d/e/1FAIpQLScfMw1MY1h3lOqU74j7RMcEFWuw1lWrbu6bKQYB3GsxKDasig/viewform)
 
 ## Functionality
 
