@@ -160,6 +160,9 @@ def aggregate_cross_country_lines(network, buscodes_path, region_shapefile=False
     agg_network : pypsa.Network
         New PyPSA network with aggregated buses and trans-region lines only.
     """
+    if network.buses.empty:
+        return pypsa.Network()
+
     buses = network.buses.copy()
 
     # Load and filter buscodes with national-level entries only (ending in XX)
@@ -277,7 +280,6 @@ if __name__ == "__main__":
     network_path = snakemake.input["network_path"]
     shapefile = snakemake.params["shapefile"]
     country_list = snakemake.params["countries"]
-
     output_exist = snakemake.output["network_existing"]
     output_plan = snakemake.output["network_planned"]
     output_model = snakemake.output["network_model"]
@@ -296,7 +298,10 @@ if __name__ == "__main__":
 
     # PyPSA Modeled network GeoJSON
     n_model = pypsa.Network(network_path)
-    n_model = update_line_lengths_from_geometry(n_model)
-    agg_model = aggregate_cross_country_lines(n_model, buscodes, region_shapefile=shapefile)
-    export_network_lines_to_geojson(agg_model, output_model)
+    if not n_model.lines.empty:
+        n_model = update_line_lengths_from_geometry(n_model)
+        agg_model = aggregate_cross_country_lines(n_model, buscodes, region_shapefile=shapefile)
+        export_network_lines_to_geojson(agg_model, output_model)
+    else:
+        export_network_lines_to_geojson(pypsa.Network(), output_model)
     
