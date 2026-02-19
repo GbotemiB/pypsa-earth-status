@@ -4,11 +4,11 @@
 
 ### New Features and Major Changes
 
-* 
+*
 
 ### Minor Changes and bug-fixing
 
-* 
+* [Add Read the Docs badge to README.md PR #35](https://github.com/pypsa-meets-earth/pypsa-earth-status/pull/35)
 
 ## Version v0.0.1 - Initial Release
 
