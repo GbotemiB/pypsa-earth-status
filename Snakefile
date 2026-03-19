@@ -147,3 +147,4 @@ rule create_example_DE:
         n.buses["country"] = "DE"
         n.export_to_netcdf(output[0])
         print(f"Created example network at {output[0]}")
+    
