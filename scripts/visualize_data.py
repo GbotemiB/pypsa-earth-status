@@ -26,6 +26,13 @@ def plot_demand_comparison(demand_df, output_path):
     """
     Plot a side-by-side bar graph comparing electricity demand for each region (reference vs network).
     """
+    if demand_df.empty:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.text(0.5, 0.5, "No Demand Data Available", ha='center', va='center', fontsize=12)
+        ax.set_axis_off()
+        plt.savefig(output_path)
+        plt.close()
+        return
 
     # Set up the plot
     plt.figure(figsize=(10, 6))
@@ -57,6 +64,24 @@ def plot_carrier_capacity_comparison(installed_capacity_df, optimal_capacity_df,
     """
     Plot a side-by-side bar graph comparing installed, optimal, and reference capacities for a given carrier (default: coal).
     """
+    if installed_capacity_df.empty or optimal_capacity_df.empty:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.text(0.5, 0.5, f"No Capacity Data Available for {carrier}", ha='center', va='center', fontsize=12)
+        ax.set_axis_off()
+        plt.savefig(output_path)
+        plt.close()
+        return
+
+    # Check if requested carrier exists, if not, apply fallback logic
+    available_carriers = installed_capacity_df['carrier'].unique()
+    if carrier not in available_carriers:
+        original_carrier = carrier
+        # Priority: Coal > CCGT
+        if 'coal' in available_carriers:
+            carrier = 'coal'
+        elif 'ccgt' in available_carriers:
+            carrier = 'ccgt'
+            print(f"{original_carrier} not found. Switching to ccgt.")
 
     # Filter for the chosen carrier
     installed_capacity_df = installed_capacity_df[installed_capacity_df['carrier'] == carrier]
@@ -73,11 +98,28 @@ def plot_carrier_capacity_comparison(installed_capacity_df, optimal_capacity_df,
     # Rename the columns to correct names
     capacity_df = capacity_df.rename(columns={'network_capacity_network': 'network_capacity', 'network_capacity_optimal': 'optimal_capacity'})
 
+
+
+    if capacity_df.empty:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.text(0.5, 0.5, f"No Capacity Data Available for {carrier} (After Filter)", ha='center', va='center', fontsize=12)
+        ax.set_axis_off()
+        plt.savefig(output_path)
+        plt.close()
+        return
+
     if normalize == True:
         # Normalize data with respect to reference data (element-wise division)
-        capacity_df['network_capacity'] = capacity_df['network_capacity'] / capacity_df['reference_capacity']
-        capacity_df['optimal_capacity'] = capacity_df['optimal_capacity'] / capacity_df['reference_capacity']
-        capacity_df['reference_capacity'] = capacity_df['reference_capacity'] / capacity_df['reference_capacity']
+        # Avoid division by zero
+        capacity_df['network_capacity'] = capacity_df.apply(
+            lambda row: row['network_capacity'] / row['reference_capacity'] if row['reference_capacity'] != 0 else 0, axis=1
+        )
+        capacity_df['optimal_capacity'] = capacity_df.apply(
+            lambda row: row['optimal_capacity'] / row['reference_capacity'] if row['reference_capacity'] != 0 else 0, axis=1
+        )
+        capacity_df['reference_capacity'] = capacity_df.apply(
+            lambda row: 1.0 if row['reference_capacity'] != 0 else 0.0, axis=1
+        )
     
     # Set up the plot
     plt.figure(figsize=(10, 6))
@@ -110,6 +152,13 @@ def plot_stack_carrier_capacity_comparison(installed_capacity_df, optimal_capaci
     Each region will have 3 bars side by side: one for reference capacity, one for network capacity, and one for optimal capacity.
     The bars will be stacked with different carriers' capacities.
     """
+    if installed_capacity_df.empty or optimal_capacity_df.empty:
+        fig, ax = plt.subplots(figsize=(12, 8))
+        ax.text(0.5, 0.5, "No Capacity Mix Data Available", ha='center', va='center', fontsize=12)
+        ax.set_axis_off()
+        plt.savefig(output_path)
+        plt.close()
+        return
 
     # Merge the dataframes on region and carrier
     merged_df = pd.merge(installed_capacity_df[['carrier', 'region', 'network_capacity']], 
@@ -192,6 +241,14 @@ def plot_capacity_grid_comparison(installed_capacity_df, optimal_capacity_df, ou
     - Columns = carriers
     - Each subplot shows bar plots: [Reference, Network, Optimal] for that region-carrier combo
     """
+    if installed_capacity_df.empty or optimal_capacity_df.empty:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.text(0.5, 0.5, "No Capacity Grid Data Available", ha='center', va='center', fontsize=12)
+        ax.set_axis_off()
+        plt.savefig(output_path)
+        plt.close()
+        return
+
     # Validate region uniqueness
     if installed_capacity_df.duplicated(subset=['region', 'carrier']).any():
         raise ValueError("Found duplicate (region, carrier) pairs in installed_capacity_df.")
@@ -282,7 +339,7 @@ if __name__ == "__main__":
 
     # Compares capacities per region one carrier at a time
     # Select carrier value: ['solar' 'onwind' 'offwind-dc' 'coal' 'CCGT' 'ror' 'biomass' 'oil' 'geothermal']
-    plot_carrier_capacity_comparison(installed_capacity_comparison, optimal_capacity_comparison, snakemake.output['plot_installed_capacity'], carrier='coal', normalize=True)
+    plot_carrier_capacity_comparison(installed_capacity_comparison, optimal_capacity_comparison, snakemake.output['plot_installed_capacity'], normalize=True)
 
     # Compares network capacity mix per region with respect to reference with a stacked bargraph
     plot_stack_carrier_capacity_comparison(installed_capacity_comparison, optimal_capacity_comparison, snakemake.output['plot_capacity_mix'], stack_percent=False)

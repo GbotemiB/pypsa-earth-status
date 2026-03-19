@@ -10,6 +10,8 @@
 
 * [Add Read the Docs badge to README.md PR #35](https://github.com/pypsa-meets-earth/pypsa-earth-status/pull/35)
 
+* [Handle empty networks and make validation plots robust to missing data PR #34](https://github.com/pypsa-meets-earth/pypsa-earth-status/pull/34)
+
 ## Version v0.0.1 - Initial Release
 
 ### New Features and Major Changes
