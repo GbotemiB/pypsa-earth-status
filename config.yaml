@@ -15,4 +15,3 @@ network_validation:
   countries: ['DE', 'FR']  # country of the network to validate
   shapefile: False
   validate_cross_border_capacity: true # validation of cross border capacity
-  
