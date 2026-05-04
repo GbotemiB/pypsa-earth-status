@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText:  PyPSA-Earth and PyPSA-Eur Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # PyPSA-Earth-Status: validating any PyPSA network on Earth
 
 ## Development Status: **under development**

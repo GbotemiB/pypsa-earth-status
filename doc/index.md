@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText:  PyPSA-Earth and PyPSA-Eur Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Welcome to the PyPSA-Earth-Status documentation!
 
 [![Test workflows](https://github.com/pypsa-meets-earth/pypsa-earth-status/actions/workflows/test.yaml/badge.svg)](https://github.com/pypsa-meets-earth/pypsa-earth/actions/workflows/test.yaml)

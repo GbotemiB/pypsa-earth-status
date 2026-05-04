@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText:  PyPSA-Earth and PyPSA-Eur Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 This section provides an overview of how to use **PyPSA-Earth-Status** to validate PyPSA networks against real-world reference data. It guides you through setting up your environment, running validation workflows, and interpreting the results.
 
 <div class="grid cards" markdown>

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText:  PyPSA-Earth and PyPSA-Eur Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Project structure
 
 PyPSA-Earth-Status is organized around a **Snakemake workflow** that turns raw reference datasets and a user-provided **PyPSA network** into **comparison tables** and **diagnostic figures**.

@@ -68,5 +68,16 @@ jobs:
     - name: Conda list
       run: conda list
 
+    - name: Set up test fixtures
+      run: |
+        mkdir -p workflows/pypsa-earth/resources/osm/clean/
+        cp tests/fixtures/all_clean_lines.geojson workflows/pypsa-earth/resources/osm/clean/
+        cp tests/fixtures/all_clean_substations.geojson workflows/pypsa-earth/resources/osm/clean/
+
+    - name: Setup GTD transmission data
+      run: |
+        mkdir -p data/electricity-transmission
+        ls -la data/electricity-transmission/
+
     - name: Run Test
       run: snakemake -j 1 visualize_data --forceall

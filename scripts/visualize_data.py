@@ -1,8 +1,15 @@
 # -*- coding: utf-8 -*-
+# SPDX-FileCopyrightText:  PyPSA-Earth and PyPSA-Eur Authors
+
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# -*- coding: utf-8 -*-
 import os
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+import cartopy.io.img_tiles as cimgt
+import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -69,7 +76,7 @@ def plot_carrier_capacity_comparison(
     optimal_capacity_df,
     output_path,
     carrier="coal",
-    normalize="False",
+    normalize=False,
 ):
     """
     Plot a side-by-side bar graph comparing installed, optimal, and reference capacities for a given carrier (default: coal).
@@ -147,7 +154,7 @@ def plot_carrier_capacity_comparison(
         plt.close()
         return
 
-    if normalize == True:
+    if normalize:
         # Normalize data with respect to reference data (element-wise division)
         # Avoid division by zero
         capacity_df["network_capacity"] = capacity_df.apply(
@@ -192,7 +199,7 @@ def plot_carrier_capacity_comparison(
     ax.spines["left"].set_visible(False)
 
     # Add horizontal grid lines
-    plt.grid(True, axis="y", zorder=0)  # Enable grid lines along the y-axis
+    plt.grid(True, axis="y", zorder=0)
     plt.tight_layout()
 
     # Save the plot
@@ -247,7 +254,7 @@ def plot_stack_carrier_capacity_comparison(
     )
 
     if stack_percent:
-        # Normalize per region’s total capacity mix
+        # Normalize per region's total capacity mix
         merged_df["network_capacity"] = merged_df.groupby("region")[
             "network_capacity"
         ].transform(lambda x: x * 100 / x.sum())
@@ -457,6 +464,136 @@ def plot_capacity_grid_comparison(
     plt.close()
 
 
+def get_voltage_color(
+    voltage: float, line_voltages: list[float], voltage_colors: list[str]
+) -> str:
+    """
+    Get the line colors corresponding to a voltage level based on defined thresholds.
+    """
+    for threshold, color in zip(line_voltages, voltage_colors):
+        if voltage <= threshold:
+            return color
+    return "#000000"
+
+
+def plot_grid_network(
+    input: dict[str, str],
+    output: str,
+    line_voltages: list[float],
+    voltage_colors: list[str],
+    plot_circuits: bool,
+) -> None:
+    """
+    Plot the grid network with lines colored by voltage levels and substations highlighted.
+
+    Parameters:
+    -----------
+    input: dict[str, str]
+        A dictionary containing paths to input files, specifically:
+        - "osm_lines": Path to the GeoJSON file containing line geometries and attributes.
+        - "osm_substations": Path to the GeoJSON file containing substation geometries.
+    output: str
+        A dictionary containing paths to output files, specifically:
+        - "plot_grid_network": Path where the generated grid network plot will be saved (e.g., as a PNG file).
+    line_voltages: list[float]
+        A list of voltage thresholds used to categorize lines into different voltage levels for coloring.
+    voltage_colors: list[str]
+        A list of colors corresponding to each voltage level in line_voltages.
+    plot_circuits: bool
+        Whether to display the number of circuits on the plot.
+    """
+    df_lines = gpd.read_file(input["osm_lines"])
+    df_substations = gpd.read_file(input["osm_substations"])
+
+    df_lines["color"] = df_lines["voltage"].apply(
+        lambda x: get_voltage_color(x / 1000, line_voltages, voltage_colors)
+    )
+
+    osm_tiles = cimgt.OSM()
+
+    fig, ax = plt.subplots(figsize=(12, 8), subplot_kw={"projection": osm_tiles.crs})
+
+    minx, miny, maxx, maxy = df_lines.total_bounds
+    ax.set_extent([minx, maxx, miny, maxy], crs=ccrs.PlateCarree())
+    ax.add_image(osm_tiles, 8)
+
+    # loop by color group so each line is plotted with its corresponding color
+    for color, group in df_lines.groupby("color"):
+        ax.add_geometries(
+            group.geometry,
+            crs=ccrs.PlateCarree(),
+            edgecolor=color,
+            facecolor="none",
+            linewidth=1,
+            zorder=2,
+        )
+
+    # circuit values on the plot if available, positioned at the midpoint of each line
+    if plot_circuits and "circuits" in df_lines.columns:
+        for _, row in df_lines.iterrows():
+            if pd.notna(row["circuits"]):
+                midpoint = row.geometry.interpolate(0.5, normalized=True)
+                ax.text(
+                    midpoint.x,
+                    midpoint.y,
+                    str(int(row["circuits"])),
+                    fontsize=6,
+                    color="black",
+                    ha="center",
+                    va="center",
+                    fontweight="bold",
+                    zorder=4,
+                    transform=ccrs.PlateCarree(),
+                    bbox=dict(
+                        boxstyle="round, pad=0.1",
+                        facecolor="white",
+                        edgecolor="none",
+                        alpha=0.5,
+                    ),
+                )
+
+    ax.scatter(
+        df_substations.geometry.x,
+        df_substations.geometry.y,
+        color="red",
+        s=5,
+        zorder=3,
+        transform=ccrs.PlateCarree(),
+    )
+
+    ax.set_title("Grid Network as Presented in OSM Data", fontsize=14)
+    ax.set_axis_off()
+    plt.tight_layout()
+    plt.savefig(output, dpi=150, bbox_inches="tight")
+    plt.close()
+
+
+def compute_line_lengths_by_voltage(
+    input: dict[str, str], output: dict[str, str]
+) -> None:
+    """
+    Compute total line lengths by voltage level and save to CSV.
+
+    Parameters:
+    -----------
+    input: dict[str, str]
+        A dictionary containing paths to input files, specifically:
+        - "osm_lines": Path to the GeoJSON file containing line geometries and attributes.
+    output: dict[str, str]
+        A dictionary containing paths to output files, specifically:
+        - "line_length_by_voltage": Path where the computed line lengths by voltage will be saved as a CSV file.
+    """
+    df_lines = gpd.read_file(input["osm_lines"])
+
+    df_lines = df_lines.to_crs(epsg=3857)
+
+    df_lines["length_km"] = df_lines.geometry.length / 1000
+    length_by_voltage = (
+        df_lines.groupby("voltage")["length_km"].sum().round(2).reset_index()
+    )
+    length_by_voltage.to_csv(output["line_length_by_voltage"], index=False)
+
+
 if __name__ == "__main__":
     if "snakemake" not in globals():
         os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -501,3 +638,13 @@ if __name__ == "__main__":
         normalize=False,
         share_y=False,
     )
+
+    plot_grid_network(
+        snakemake.input,
+        snakemake.output["plot_grid_network"],
+        line_voltages=snakemake.params["line_voltages"],
+        voltage_colors=snakemake.params["voltage_colors"],
+        plot_circuits=snakemake.params["plot_circuits"],
+    )
+
+    compute_line_lengths_by_voltage(snakemake.input, snakemake.output)

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText:  PyPSA-Earth and PyPSA-Eur Authors
+
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # -*- coding: utf-8 -*-
 """
 
@@ -8,6 +12,7 @@ This script cleans raw statistics data from different sources, to build statisti
 import os
 
 import country_converter as coco
+import geopandas as gpd
 import pandas as pd
 from helpers import (
     configure_logging,

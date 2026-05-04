@@ -127,6 +127,13 @@ rule visualize_data:
         demand_comparison="results/tables/demand.csv",
         installed_capacity_comparison="results/tables/installed_capacity.csv",
         optimal_capacity_comparison="results/tables/optimal_capacity.csv",
+        osm_lines=os.path.join(
+            config["plot_osm_grid_network"]["grid_path"], "all_clean_lines.geojson"
+        ),
+        osm_substations=os.path.join(
+            config["plot_osm_grid_network"]["grid_path"],
+            "all_clean_substations.geojson",
+        ),
         # energy_dispatch_comparison="results/tables/energy_dispatch.geojson"
         # network_comparison="results/tables/network.geojson"
     output:
@@ -134,8 +141,14 @@ rule visualize_data:
         plot_installed_capacity="results/figures/installed_capacity_comparison.png",
         plot_capacity_mix="results/figures/capacity_mix_comparison.png",
         plot_capacity_grid="results/figures/capacity_grid_comparison.png",
+        plot_grid_network="results/figures/grid_network.png",
+        line_length_by_voltage="results/tables/line_length_by_voltage.csv",
     log:
         "logs/visualize_data.log",
+    params:
+        line_voltages=config["plot_osm_grid_network"]["line_voltages"],
+        voltage_colors=config["plot_osm_grid_network"]["voltage_colors"],
+        plot_circuits=config["plot_osm_grid_network"]["plot_circuits"],
     script:
         "scripts/visualize_data.py"
 
