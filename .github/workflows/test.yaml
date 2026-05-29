@@ -23,13 +23,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu, macos, windows]
-        include:
-        - os: ubuntu
-          env_file: workflows/pypsa-earth/envs/linux-64.lock.yaml
-        - os: macos
-          env_file: workflows/pypsa-earth/envs/osx-arm64.lock.yaml
-        - os: windows
-          env_file: workflows/pypsa-earth/envs/win-64.lock.yaml
 
     defaults:
       run:
@@ -40,19 +33,15 @@ jobs:
 
     - name: Use env file
       run: |
-        echo "Lock files changed. Using lock files."
-        echo "env_file=${{ matrix.env_file }}" >> $GITHUB_ENV
+        echo "Using repository environment file."
+        echo "env_file=envs/environment.yaml" >> $GITHUB_ENV
 
     - uses: conda-incubator/setup-miniconda@v3
       with:
         miniforge-version: latest
-        activate-environment: pypsa-earth
+        activate-environment: pypsa-earth-status
         channel-priority: strict
         conda-remove-defaults: true
-
-    - name: Fill submodules
-      run: |
-        git submodule update --init --recursive
 
     - name: Cache Conda env
       uses: actions/cache@v4
@@ -63,21 +52,15 @@ jobs:
 
     - name: Update environment
       if: steps.cache-env.outputs.cache-hit != 'true'
-      run: conda env update -n pypsa-earth -f ${{ matrix.env_file }}
+      run: conda env update -n pypsa-earth-status -f ${{ env.env_file }}
 
     - name: Conda list
       run: conda list
 
-    - name: Set up test fixtures
-      run: |
-        mkdir -p workflows/pypsa-earth/resources/osm/clean/
-        cp tests/fixtures/all_clean_lines.geojson workflows/pypsa-earth/resources/osm/clean/
-        cp tests/fixtures/all_clean_substations.geojson workflows/pypsa-earth/resources/osm/clean/
-
     - name: Setup GTD transmission data
       run: |
-        mkdir -p data/electricity-transmission
-        ls -la data/electricity-transmission/
+        mkdir -p data/electricity_transmission
+        ls -la data/electricity_transmission/
 
     - name: Run Test
       run: snakemake -j 1 visualize_data --forceall
