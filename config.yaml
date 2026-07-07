@@ -20,6 +20,27 @@ network_validation:
   shapefile: false
   validate_cross_border_capacity: true # validation of cross border capacity
 
+  # Validation of multiple networks against the same datasets.
+  # The networks are specified in the "networks" block, where each network has a unique name
+  # and specifies the path to the network file and the countries it covers.
+  # The validation will be performed for each network in the list.
+  # Uncomment the "networks" block and add the networks you want to validate.
+  #
+  # networks:
+  #   NG_2021:
+  #     path: "results/NG_2021/networks/elec_s_40flex_ec_lc1.0_1H.nc"
+  #     countries: ["NG"]
+  #   ZA_2021:
+  #     path: "results/ZA_2021/networks/elec_s_40flex_ec_lc1.0_1H.nc"
+  #     countries: ["ZA"]
+  #   US_2021:
+  #     path: "results/US_2021/networks/elec_s_60flex_ec_lc1.0_1H.nc"
+  #     countries: ["US"]
+  #   SAPP:
+  #     path: "results/SAPP/networks/elec_s_40flex_ec_lc1.0_1H.nc"
+  #     countries: ["ZA", "BW", "LS", "MW", "MZ"]
+
+
 plot_osm_grid_network:
   grid_path: "tests/fixtures"
   line_voltages: [132., 220., 300., 380., 500., 750.]
