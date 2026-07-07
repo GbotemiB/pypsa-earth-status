@@ -23,6 +23,51 @@ rule clean:
             pass
 
 
+rule download_ember_data:
+    output:
+        "data/ember/yearly_full_release_long_format.csv",
+    log:
+        "logs/download_ember_data.log",
+    run:
+        from helpers import progress_retrieve
+
+        url = "https://storage.googleapis.com/emb-prod-bkt-publicdata/public-downloads/yearly_full_release_long_format.csv"
+        progress_retrieve(url, output[0])
+
+
+rule build_reference_demand_ember:
+    input:
+        demand_ember="data/ember/yearly_full_release_long_format.csv",
+    output:
+        demand_ember="resources/clean/ember_demand_data.csv",
+    log:
+        "logs/build_reference_demand_ember.log",
+    script:
+        "scripts/build_reference_demand_ember.py"
+
+
+rule build_reference_installed_capacity_ember:
+    input:
+        cap_ember="data/ember/yearly_full_release_long_format.csv",
+    output:
+        cap_ember="resources/clean/ember_capacity_data.csv",
+    log:
+        "logs/build_reference_installed_capacity_ember.log",
+    script:
+        "scripts/build_reference_installed_capacity_ember.py"
+
+
+rule build_reference_generation_ember:
+    input:
+        gen_ember="data/ember/yearly_full_release_long_format.csv",
+    output:
+        gen_ember="resources/clean/ember_generation_data.csv",
+    log:
+        "logs/build_reference_generation_ember.log",
+    script:
+        "scripts/build_reference_generation_ember.py"
+
+
 rule build_reference_demand_ourworldindata:
     input:
         demand_owid="data/electricity_demand/owid-energy-data.csv",  # from https://nyc3.digitaloceanspaces.com/owid-public/data/energy/owid-energy-data.csv
@@ -70,12 +115,14 @@ rule build_network_geojson:
 rule build_reference_statistics:
     input:
         demand_owid="resources/clean/owid_demand_data.csv",
+        demand_ember="resources/clean/ember_demand_data.csv",
         cap_irena="resources/clean/irena_capacity_data.csv",
-        # other sources
+        cap_ember="resources/clean/ember_capacity_data.csv",
+        gen_ember="resources/clean/ember_generation_data.csv",
     output:
         demand="resources/reference_statistics/demand.csv",
         installed_capacity="resources/reference_statistics/installed_capacity.csv",
-        # energy_dispatch="resources/reference_statistics/energy_dispatch.geojson"
+        generation="resources/reference_statistics/generation.csv",
     log:
         "logs/build_reference_statistics.log",
     params:
@@ -92,8 +139,7 @@ rule build_network_statistics:
         demand="resources/network_statistics/demand.csv",
         installed_capacity="resources/network_statistics/installed_capacity.csv",
         optimal_capacity="resources/network_statistics/optimal_capacity.csv",
-        # energy_dispatch="resources/network_statistics/energy_dispatch.csv",
-        # network="resources/network_statistics/network.geojson",
+        generation="resources/network_statistics/generation.csv",
     log:
         "logs/build_network_statistics.log",
     params:
@@ -107,22 +153,22 @@ rule make_comparison:
         demand_network="resources/network_statistics/demand.csv",
         installed_capacity_network="resources/network_statistics/installed_capacity.csv",
         optimal_capacity_network="resources/network_statistics/optimal_capacity.csv",
-        # energy_dispatch_network="resources/network_statistics/energy_dispatch.csv",
-        # network_network="resources/network_statistics/network.geojson",
+        generation_network="resources/network_statistics/generation.csv",
         network_geojson_network="resources/network_statistics/network_model.geojson",
         demand_reference="resources/reference_statistics/demand.csv",
         installed_capacity_reference="resources/reference_statistics/installed_capacity.csv",
-        # energy_dispatch_reference="resources/reference_statistics/energy_dispatch.geojson"
+        generation_reference="resources/reference_statistics/generation.csv",
         network_geojson_reference="resources/reference_statistics/network_exist.geojson",
     output:
         demand_comparison="results/tables/demand.csv",
         installed_capacity_comparison="results/tables/installed_capacity.csv",
         optimal_capacity_comparison="results/tables/optimal_capacity.csv",
+        generation_comparison="results/tables/generation.csv",
         network_comparison_geojson="results/network_comparison.geojson",
-        # energy_dispatch_comparison="results/tables/energy_dispatch.geojson"
-        # network_comparison="results/tables/network.geojson"
     log:
         "logs/make_comparison.log",
+    params:
+        datasets=config["datasets"],
     script:
         "scripts/make_comparison.py"
 
@@ -170,3 +216,19 @@ rule create_example_DE:
         n.buses["country"] = "DE"
         n.export_to_netcdf(output[0])
         print(f"Created example network at {output[0]}")
+
+
+rule build_health_status:
+    input:
+        demand_reference="resources/clean/ember_demand_data.csv",
+        capacity_reference="resources/clean/ember_capacity_data.csv",
+        generation_reference="resources/clean/ember_generation_data.csv",
+    output:
+        health_status="results/health_status.csv",
+    log:
+        "logs/build_health_status.log",
+    params:
+        networks=config["network_validation"].get("networks", {}),
+        year=config["network_validation"]["year"],
+    script:
+        "scripts/build_health_status.py"
