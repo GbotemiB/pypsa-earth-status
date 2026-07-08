@@ -115,3 +115,39 @@ If you want to validate your own PyPSA network, you can:
     ```
 
 5. Check the results in the `results/` folder
+
+## Compiling Health Status Reports
+
+If you want to validate multiple solved networks (scenarios) across multiple countries and compare them against different configurable reference sources (e.g., Ember, IRENA, Our World in Data) in a single long-format tidy table:
+
+1. **Configure Scenarios:**
+   Open the file `config.yaml` and add your solved networks under the `networks:` block:
+   ```yaml
+   network_validation:
+     fallback_pypsa_earth_version: "v0.4.0" # Fallback if not found in network metadata
+     networks:
+       NG_2021:
+         path: "results/NG_2021/networks/elec_s_40flex_ec_lc1.0_1H.nc"
+         countries: ["NG"]
+       ZA_2021:
+         path: "results/ZA_2021/networks/elec_s_40flex_ec_lc1.0_1H.nc"
+         countries: ["ZA"]
+   ```
+
+2. **Select Reference Sources:**
+   Under the `datasets:` block, specify the list of sources you want to compare against for demand, capacity, and generation:
+   ```yaml
+   datasets:
+     demand: ["ourworldindata", "ember"]
+     installed_capacity: ["irena", "ember"]
+     generation: ["ember"]
+   ```
+
+3. **Execute the rule:**
+   Run the following Snakemake command:
+   ```bash
+   snakemake -j 1 results/health_status.csv
+   ```
+
+4. **Review Results:**
+   The tidy long-format comparison is exported to `results/health_status.csv` (and copied to the parent folder `../health_status.csv`). Each row compares a single scenario, country, and metric against a single reference source, detailing relative error deviations and validation grades (`A`, `B`, `C`, `D`).
