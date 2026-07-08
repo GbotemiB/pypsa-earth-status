@@ -25,7 +25,7 @@ def filter_data_by_config(df, column, valid_values):
     return df[df[column].isin(valid_values)]
 
 
-def process_reference_statistics(inputs, outputs, config):
+def process_reference_statistics(inputs, outputs, year, countries):
     """
     Processes demand, installed capacity, and generation data based on specified years and countries.
     """
@@ -102,4 +102,7 @@ if __name__ == "__main__":
 
     configure_logging(snakemake)
 
-    process_reference_statistics(snakemake.input, snakemake.output, snakemake.config)
+    year = snakemake.params["year"][0]
+    countries = snakemake.params["countries"]
+
+    process_reference_statistics(snakemake.input, snakemake.output, year, countries)
