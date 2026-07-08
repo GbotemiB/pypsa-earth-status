@@ -231,13 +231,18 @@ def compile_health_status(snakemake):
                 carriers, fill_value=0.0
             ).sum()
 
-            # Calculate capacity MAE
+            # Calculate capacity MAE as a percentage of total reference capacity
             df_cap = pd.DataFrame(index=carriers)
             df_cap["pypsa"] = pypsa_cap_grouped.reindex(carriers, fill_value=0.0)
             df_cap["ref"] = ref_cap_grouped.reindex(carriers, fill_value=0.0)
             capacity_difference_mae = (df_cap["pypsa"] - df_cap["ref"]).abs().mean()
+            capacity_mae_pct = (
+                (capacity_difference_mae / total_installed_capacity_ref * 100.0)
+                if total_installed_capacity_ref > 0
+                else 0.0
+            )
 
-            # 3. Generation mix comparison
+            # 3. Generation comparison
             ref_gen_rows = ref_generation_df[ref_generation_df["region"] == country]
             ref_gen_grouped = ref_gen_rows.groupby("carrier")["generation"].sum()
             total_generation_ref = ref_gen_grouped.reindex(
@@ -252,26 +257,17 @@ def compile_health_status(snakemake):
                 carriers, fill_value=0.0
             ).sum()
 
-            # Calculate generation MAE and mix error (percentage shares MAE)
+            # Calculate generation MAE as a percentage of total reference generation
             df_gen_comp = pd.DataFrame(index=carriers)
             df_gen_comp["pypsa"] = pypsa_gen_grouped.reindex(carriers, fill_value=0.0)
             df_gen_comp["ref"] = ref_gen_grouped.reindex(carriers, fill_value=0.0)
             generation_difference_mae = (
                 (df_gen_comp["pypsa"] - df_gen_comp["ref"]).abs().mean()
             )
-
-            df_gen_comp["pypsa_share"] = (
-                (df_gen_comp["pypsa"] / total_generation_pypsa * 100.0)
-                if total_generation_pypsa > 0
-                else 0.0
-            )
-            df_gen_comp["ref_share"] = (
-                (df_gen_comp["ref"] / total_generation_ref * 100.0)
+            generation_mae_pct = (
+                (generation_difference_mae / total_generation_ref * 100.0)
                 if total_generation_ref > 0
                 else 0.0
-            )
-            generation_mix_error = (
-                (df_gen_comp["pypsa_share"] - df_gen_comp["ref_share"]).abs().mean()
             )
 
             # 4. Line properties
@@ -310,14 +306,15 @@ def compile_health_status(snakemake):
                     "pypsa_earth_version": "v0.4.0",
                     "total_installed_capacity_ref": total_installed_capacity_ref,
                     "total_installed_capacity_pypsa": total_installed_capacity_pypsa,
-                    "capacity_difference_mae": capacity_difference_mae,
+                    "capacity_mae_pct": capacity_mae_pct,
                     "total_generation_ref": total_generation_ref,
                     "total_generation_pypsa": total_generation_pypsa,
-                    "generation_difference_mae": generation_difference_mae,
-                    "generation_mix_error": generation_mix_error,
+                    "generation_mae_pct": generation_mae_pct,
+                    "demand_ref": ref_demand,
+                    "demand_pypsa": pypsa_demand,
+                    "demand_error_pct": demand_error_pct,
                     "line_length_ratio": line_length_ratio,
                     "line_capacity_ratio": line_capacity_ratio,
-                    "demand_error_pct": demand_error_pct,
                 }
             )
 
