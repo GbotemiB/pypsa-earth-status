@@ -270,33 +270,6 @@ def compile_health_status(snakemake):
                 else 0.0
             )
 
-            # 4. Line properties
-            if "country" in n.buses.columns:
-                country0 = (
-                    n.buses.loc[n.lines["bus0"], "country"]
-                    .fillna("")
-                    .astype(str)
-                    .str.upper()
-                    .values
-                )
-                country1 = (
-                    n.buses.loc[n.lines["bus1"], "country"]
-                    .fillna("")
-                    .astype(str)
-                    .str.upper()
-                    .values
-                )
-                country_lines = n.lines[(country0 == country) & (country1 == country)]
-            else:
-                country_lines = n.lines
-
-            s_nom_min_sum = country_lines.s_nom_min.sum()
-            s_nom_sum = country_lines.s_nom.sum()
-            line_capacity_ratio = (
-                (s_nom_sum / s_nom_min_sum) if s_nom_min_sum > 0 else 1.0
-            )
-            line_length_ratio = 1.0
-
             # Append record
             records.append(
                 {
@@ -313,8 +286,6 @@ def compile_health_status(snakemake):
                     "demand_ref": ref_demand,
                     "demand_pypsa": pypsa_demand,
                     "demand_error_pct": demand_error_pct,
-                    "line_length_ratio": line_length_ratio,
-                    "line_capacity_ratio": line_capacity_ratio,
                 }
             )
 
