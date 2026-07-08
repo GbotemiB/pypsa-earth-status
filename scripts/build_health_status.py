@@ -8,6 +8,7 @@
 import logging
 import os
 import shutil
+from itertools import product
 
 import country_converter as coco
 import numpy as np
@@ -34,43 +35,48 @@ def compile_health_status(snakemake):
 
     # Resolve datasets configuration from snakemake params
     datasets = snakemake.params.datasets
-    demand_source = datasets.get("demand", ["ember"])[0].lower()
-    capacity_source = datasets.get("installed_capacity", ["ember"])[0].lower()
-    generation_source = datasets.get("generation", ["ember"])[0].lower()
 
-    # Load Demand Reference dynamically
-    if demand_source == "ourworldindata":
-        ref_demand_df = read_csv_nafix(snakemake.input.demand_owid)
-        ref_demand_df = ref_demand_df.rename(
-            columns={"year": "Year", "electricity_demand": "demand"}
-        )
-    elif demand_source == "ember":
-        ref_demand_df = read_csv_nafix(snakemake.input.demand_ember)
-    else:
-        raise ValueError(f"Unknown demand reference source: {demand_source}")
-    ref_demand_df = ref_demand_df[ref_demand_df["Year"] == year]
+    # Preload all configured demand reference sources
+    demand_refs = {}
+    for src in datasets.get("demand", ["ember"]):
+        src = src.lower()
+        if src == "ourworldindata":
+            df = read_csv_nafix(snakemake.input.demand_owid)
+            df = df.rename(columns={"year": "Year", "electricity_demand": "demand"})
+        elif src == "ember":
+            df = read_csv_nafix(snakemake.input.demand_ember)
+        else:
+            logger.warning(f"Unknown demand source: {src}, skipping.")
+            continue
+        demand_refs[src] = df[df["Year"] == year]
 
-    # Load Capacity Reference dynamically
-    if capacity_source == "irena":
-        ref_capacity_df = read_csv_nafix(snakemake.input.cap_irena)
-    elif capacity_source == "ember":
-        ref_capacity_df = read_csv_nafix(snakemake.input.cap_ember)
-    else:
-        raise ValueError(f"Unknown capacity reference source: {capacity_source}")
-    ref_capacity_df = ref_capacity_df[ref_capacity_df["Year"] == year].rename(
-        columns={"Technology": "carrier"}
-    )
-    ref_capacity_df["carrier"] = harmonize_carrier_names(ref_capacity_df["carrier"])
+    # Preload all configured capacity reference sources
+    capacity_refs = {}
+    for src in datasets.get("installed_capacity", ["ember"]):
+        src = src.lower()
+        if src == "irena":
+            df = read_csv_nafix(snakemake.input.cap_irena)
+        elif src == "ember":
+            df = read_csv_nafix(snakemake.input.cap_ember)
+        else:
+            logger.warning(f"Unknown capacity source: {src}, skipping.")
+            continue
+        df = df[df["Year"] == year].rename(columns={"Technology": "carrier"})
+        df["carrier"] = harmonize_carrier_names(df["carrier"])
+        capacity_refs[src] = df
 
-    # Load Generation Reference dynamically
-    if generation_source == "ember":
-        ref_generation_df = read_csv_nafix(snakemake.input.gen_ember)
-    else:
-        raise ValueError(f"Unknown generation reference source: {generation_source}")
-    ref_generation_df = ref_generation_df[ref_generation_df["Year"] == year].rename(
-        columns={"Technology": "carrier"}
-    )
-    ref_generation_df["carrier"] = harmonize_carrier_names(ref_generation_df["carrier"])
+    # Preload all configured generation reference sources
+    generation_refs = {}
+    for src in datasets.get("generation", ["ember"]):
+        src = src.lower()
+        if src == "ember":
+            df = read_csv_nafix(snakemake.input.gen_ember)
+        else:
+            logger.warning(f"Unknown generation source: {src}, skipping.")
+            continue
+        df = df[df["Year"] == year].rename(columns={"Technology": "carrier"})
+        df["carrier"] = harmonize_carrier_names(df["carrier"])
+        generation_refs[src] = df
 
     carriers = [
         "pv",
@@ -209,15 +215,12 @@ def compile_health_status(snakemake):
         ]
         generation["carrier"] = harmonize_carrier_names(generation["carrier"])
 
-        # Now loop through target countries
+        # Now loop through target countries and source combinations
         for country in target_countries:
             country_name = cc.convert(names=country, to="name")
             logger.info(f"  Comparing country {country_name} ({country})...")
 
-            # 1. Demand comparison
-            ref_dem_row = ref_demand_df[ref_demand_df["region"] == country]
-            ref_demand = ref_dem_row["demand"].sum() if not ref_dem_row.empty else 0.0
-
+            # Compute PyPSA demand for this country (same across all source combinations)
             if "country" in n.buses.columns:
                 loads_country = n.loads.bus.map(n.buses.country)
                 country_loads = n.loads.index[loads_country == country]
@@ -232,19 +235,7 @@ def compile_health_status(snakemake):
                 * 1e-6
             )
 
-            demand_error_pct = (
-                (pypsa_demand - ref_demand) / ref_demand * 100.0
-                if ref_demand > 0
-                else np.nan
-            )
-
-            # 2. Installed capacity comparison
-            ref_cap_rows = ref_capacity_df[ref_capacity_df["region"] == country]
-            ref_cap_grouped = ref_cap_rows.groupby("carrier")["p_nom"].sum()
-            total_installed_capacity_ref = ref_cap_grouped.reindex(
-                carriers, fill_value=0.0
-            ).sum()
-
+            # Compute PyPSA capacity for this country (same across all source combinations)
             installed_capacity_country = installed_capacity[
                 installed_capacity["region"].str.upper() == country
             ]
@@ -255,24 +246,7 @@ def compile_health_status(snakemake):
                 carriers, fill_value=0.0
             ).sum()
 
-            # Calculate capacity MAE as a percentage of total reference capacity
-            df_cap = pd.DataFrame(index=carriers)
-            df_cap["pypsa"] = pypsa_cap_grouped.reindex(carriers, fill_value=0.0)
-            df_cap["ref"] = ref_cap_grouped.reindex(carriers, fill_value=0.0)
-            capacity_difference_mae = (df_cap["pypsa"] - df_cap["ref"]).abs().mean()
-            capacity_mae_pct = (
-                (capacity_difference_mae / total_installed_capacity_ref * 100.0)
-                if total_installed_capacity_ref > 0
-                else 0.0
-            )
-
-            # 3. Generation comparison
-            ref_gen_rows = ref_generation_df[ref_generation_df["region"] == country]
-            ref_gen_grouped = ref_gen_rows.groupby("carrier")["generation"].sum()
-            total_generation_ref = ref_gen_grouped.reindex(
-                carriers, fill_value=0.0
-            ).sum()
-
+            # Compute PyPSA generation for this country (same across all source combinations)
             generation_country = generation[generation["region"].str.upper() == country]
             pypsa_gen_grouped = generation_country.groupby("carrier")[
                 "generation"
@@ -281,37 +255,85 @@ def compile_health_status(snakemake):
                 carriers, fill_value=0.0
             ).sum()
 
-            # Calculate generation MAE as a percentage of total reference generation
-            df_gen_comp = pd.DataFrame(index=carriers)
-            df_gen_comp["pypsa"] = pypsa_gen_grouped.reindex(carriers, fill_value=0.0)
-            df_gen_comp["ref"] = ref_gen_grouped.reindex(carriers, fill_value=0.0)
-            generation_difference_mae = (
-                (df_gen_comp["pypsa"] - df_gen_comp["ref"]).abs().mean()
-            )
-            generation_mae_pct = (
-                (generation_difference_mae / total_generation_ref * 100.0)
-                if total_generation_ref > 0
-                else 0.0
-            )
+            # Loop through all source combinations
+            for demand_src, capacity_src, generation_src in product(
+                demand_refs.keys(), capacity_refs.keys(), generation_refs.keys()
+            ):
+                ref_demand_df = demand_refs[demand_src]
+                ref_capacity_df = capacity_refs[capacity_src]
+                ref_generation_df = generation_refs[generation_src]
 
-            # Append record
-            records.append(
-                {
-                    "scenario_key": scenario_key,
-                    "country_code": country,
-                    "country_name": country_name,
-                    "pypsa_earth_version": "v0.4.0",
-                    "total_installed_capacity_ref": total_installed_capacity_ref,
-                    "total_installed_capacity_pypsa": total_installed_capacity_pypsa,
-                    "capacity_mae_pct": capacity_mae_pct,
-                    "total_generation_ref": total_generation_ref,
-                    "total_generation_pypsa": total_generation_pypsa,
-                    "generation_mae_pct": generation_mae_pct,
-                    "demand_ref": ref_demand,
-                    "demand_pypsa": pypsa_demand,
-                    "demand_error_pct": demand_error_pct,
-                }
-            )
+                # 1. Demand comparison
+                ref_dem_row = ref_demand_df[ref_demand_df["region"] == country]
+                ref_demand = (
+                    ref_dem_row["demand"].sum() if not ref_dem_row.empty else 0.0
+                )
+
+                demand_error_pct = (
+                    (pypsa_demand - ref_demand) / ref_demand * 100.0
+                    if ref_demand > 0
+                    else np.nan
+                )
+
+                # 2. Installed capacity comparison
+                ref_cap_rows = ref_capacity_df[ref_capacity_df["region"] == country]
+                ref_cap_grouped = ref_cap_rows.groupby("carrier")["p_nom"].sum()
+                total_installed_capacity_ref = ref_cap_grouped.reindex(
+                    carriers, fill_value=0.0
+                ).sum()
+
+                df_cap = pd.DataFrame(index=carriers)
+                df_cap["pypsa"] = pypsa_cap_grouped.reindex(carriers, fill_value=0.0)
+                df_cap["ref"] = ref_cap_grouped.reindex(carriers, fill_value=0.0)
+                capacity_difference_mae = (df_cap["pypsa"] - df_cap["ref"]).abs().mean()
+                capacity_mae_pct = (
+                    (capacity_difference_mae / total_installed_capacity_ref * 100.0)
+                    if total_installed_capacity_ref > 0
+                    else 0.0
+                )
+
+                # 3. Generation comparison
+                ref_gen_rows = ref_generation_df[ref_generation_df["region"] == country]
+                ref_gen_grouped = ref_gen_rows.groupby("carrier")["generation"].sum()
+                total_generation_ref = ref_gen_grouped.reindex(
+                    carriers, fill_value=0.0
+                ).sum()
+
+                df_gen_comp = pd.DataFrame(index=carriers)
+                df_gen_comp["pypsa"] = pypsa_gen_grouped.reindex(
+                    carriers, fill_value=0.0
+                )
+                df_gen_comp["ref"] = ref_gen_grouped.reindex(carriers, fill_value=0.0)
+                generation_difference_mae = (
+                    (df_gen_comp["pypsa"] - df_gen_comp["ref"]).abs().mean()
+                )
+                generation_mae_pct = (
+                    (generation_difference_mae / total_generation_ref * 100.0)
+                    if total_generation_ref > 0
+                    else 0.0
+                )
+
+                # Append record for this source combination
+                records.append(
+                    {
+                        "scenario_key": scenario_key,
+                        "country_code": country,
+                        "country_name": country_name,
+                        "pypsa_earth_version": "v0.4.0",
+                        "demand_source": demand_src,
+                        "capacity_source": capacity_src,
+                        "generation_source": generation_src,
+                        "total_installed_capacity_ref": total_installed_capacity_ref,
+                        "total_installed_capacity_pypsa": total_installed_capacity_pypsa,
+                        "capacity_mae_pct": capacity_mae_pct,
+                        "total_generation_ref": total_generation_ref,
+                        "total_generation_pypsa": total_generation_pypsa,
+                        "generation_mae_pct": generation_mae_pct,
+                        "demand_ref": ref_demand,
+                        "demand_pypsa": pypsa_demand,
+                        "demand_error_pct": demand_error_pct,
+                    }
+                )
 
     # Save to CSV
     health_status_df = pd.DataFrame(records)
