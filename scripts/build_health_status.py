@@ -46,8 +46,9 @@ def compile_health_status(snakemake):
 
     cc = coco.CountryConverter()
 
-    # Resolve datasets configuration from snakemake params
+    # Resolve datasets and fallback version configuration from snakemake params
     datasets = snakemake.params.datasets
+    fallback_version = snakemake.params.fallback_pypsa_earth_version
 
     # Preload all configured demand reference sources
     demand_refs = {}
@@ -131,9 +132,9 @@ def compile_health_status(snakemake):
 
         # Extract pypsa-earth version from network metadata
         pypsa_earth_version = (
-            n.meta.get("version", "v0.4.0")
+            n.meta.get("version", fallback_version)
             if isinstance(getattr(n, "meta", None), dict)
-            else "v0.4.0"
+            else fallback_version
         )
 
         # Resolve target countries for this scenario

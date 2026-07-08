@@ -233,5 +233,8 @@ rule build_health_status:
         networks=config["network_validation"].get("networks", {}),
         year=config["network_validation"]["year"],
         datasets=config.get("datasets", {}),
+        fallback_pypsa_earth_version=config["network_validation"].get(
+            "fallback_pypsa_earth_version", "unknown"
+        ),
     script:
         "scripts/build_health_status.py"

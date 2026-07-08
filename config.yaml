@@ -20,6 +20,7 @@ network_validation:
   countries: ['DE', 'FR']  # country of the network to validate
   shapefile: false
   validate_cross_border_capacity: true # validation of cross border capacity
+  fallback_pypsa_earth_version: "v0.4.0"
 
   # Validation of multiple networks against the same datasets.
   # The networks are specified in the "networks" block, where each network has a unique name
