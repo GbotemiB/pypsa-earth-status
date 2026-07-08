@@ -129,6 +129,13 @@ def compile_health_status(snakemake):
             logger.error(f"  Error loading network for {scenario_key}: {e}. Skipping.")
             continue
 
+        # Extract pypsa-earth version from network metadata
+        pypsa_earth_version = (
+            n.meta.get("version", "v0.4.0")
+            if isinstance(getattr(n, "meta", None), dict)
+            else "v0.4.0"
+        )
+
         # Resolve target countries for this scenario
         if explicit_countries is not None:
             target_countries = explicit_countries
@@ -294,9 +301,8 @@ def compile_health_status(snakemake):
                         "unit": "TWh",
                         "deviation_pct": demand_error_pct,
                         "grade": get_grade(demand_error_pct),
-                        "pypsa_earth_version": "v0.4.0",
-                        "model_year": year,
-                        "reference_year": year,
+                        "pypsa_earth_version": pypsa_earth_version,
+                        "year": year,
                     }
                 )
 
@@ -346,9 +352,8 @@ def compile_health_status(snakemake):
                         "unit": "MW",
                         "deviation_pct": cap_dev_pct,
                         "grade": get_grade(cap_dev_pct),
-                        "pypsa_earth_version": "v0.4.0",
-                        "model_year": year,
-                        "reference_year": year,
+                        "pypsa_earth_version": pypsa_earth_version,
+                        "year": year,
                     }
                 )
 
@@ -366,9 +371,8 @@ def compile_health_status(snakemake):
                         "unit": "%",
                         "deviation_pct": capacity_mae_pct,
                         "grade": get_grade(capacity_mae_pct),
-                        "pypsa_earth_version": "v0.4.0",
-                        "model_year": year,
-                        "reference_year": year,
+                        "pypsa_earth_version": pypsa_earth_version,
+                        "year": year,
                     }
                 )
 
@@ -422,9 +426,8 @@ def compile_health_status(snakemake):
                         "unit": "TWh",
                         "deviation_pct": gen_dev_pct,
                         "grade": get_grade(gen_dev_pct),
-                        "pypsa_earth_version": "v0.4.0",
-                        "model_year": year,
-                        "reference_year": year,
+                        "pypsa_earth_version": pypsa_earth_version,
+                        "year": year,
                     }
                 )
 
@@ -442,9 +445,8 @@ def compile_health_status(snakemake):
                         "unit": "%",
                         "deviation_pct": generation_mae_pct,
                         "grade": get_grade(generation_mae_pct),
-                        "pypsa_earth_version": "v0.4.0",
-                        "model_year": year,
-                        "reference_year": year,
+                        "pypsa_earth_version": pypsa_earth_version,
+                        "year": year,
                     }
                 )
 
