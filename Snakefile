@@ -220,9 +220,11 @@ rule create_example_DE:
 
 rule build_health_status:
     input:
-        demand_reference="resources/clean/ember_demand_data.csv",
-        capacity_reference="resources/clean/ember_capacity_data.csv",
-        generation_reference="resources/clean/ember_generation_data.csv",
+        demand_owid="resources/clean/owid_demand_data.csv",
+        demand_ember="resources/clean/ember_demand_data.csv",
+        cap_irena="resources/clean/irena_capacity_data.csv",
+        cap_ember="resources/clean/ember_capacity_data.csv",
+        gen_ember="resources/clean/ember_generation_data.csv",
     output:
         health_status="results/health_status.csv",
     log:
@@ -230,5 +232,6 @@ rule build_health_status:
     params:
         networks=config["network_validation"].get("networks", {}),
         year=config["network_validation"]["year"],
+        datasets=config.get("datasets", {}),
     script:
         "scripts/build_health_status.py"

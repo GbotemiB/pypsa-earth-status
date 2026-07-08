@@ -8,8 +8,9 @@ methodology: network_validation   # technique used in the validation:
                                   # - network_validation: to validate a single network file specified in    "network_validation" block
 
 datasets:
-  demand: ["ourworldindata"]  # list of datasets sources to use. A subset of 'ourworldindata'
-  installed_capacity: ["irena"]  # list of datasets sources to use. A subset of 'irena'
+  demand: ["ourworldindata"]  # list of datasets sources to use. A subset of 'ourworldindata', 'ember'
+  installed_capacity: ["irena"]  # list of datasets sources to use. A subset of 'irena', 'ember'
+  generation: ["ember"]  # list of datasets sources to use. A subset of 'ember'
   # energy_dispatch: []  # list of datasets sources to validate energy dispatch. Not yet supported
   # network: []  # list of datasets sources to validate networks. Not yet supported
 

@@ -32,17 +32,41 @@ def compile_health_status(snakemake):
 
     cc = coco.CountryConverter()
 
-    # Load reference statistics from cleaned Ember CSVs and filter for the specified year
-    ref_demand_df = read_csv_nafix(snakemake.input.demand_reference)
+    # Resolve datasets configuration from snakemake params
+    datasets = snakemake.params.datasets
+    demand_source = datasets.get("demand", ["ember"])[0].lower()
+    capacity_source = datasets.get("installed_capacity", ["ember"])[0].lower()
+    generation_source = datasets.get("generation", ["ember"])[0].lower()
+
+    # Load Demand Reference dynamically
+    if demand_source == "ourworldindata":
+        ref_demand_df = read_csv_nafix(snakemake.input.demand_owid)
+        ref_demand_df = ref_demand_df.rename(
+            columns={"year": "Year", "electricity_demand": "demand"}
+        )
+    elif demand_source == "ember":
+        ref_demand_df = read_csv_nafix(snakemake.input.demand_ember)
+    else:
+        raise ValueError(f"Unknown demand reference source: {demand_source}")
     ref_demand_df = ref_demand_df[ref_demand_df["Year"] == year]
 
-    ref_capacity_df = read_csv_nafix(snakemake.input.capacity_reference)
+    # Load Capacity Reference dynamically
+    if capacity_source == "irena":
+        ref_capacity_df = read_csv_nafix(snakemake.input.cap_irena)
+    elif capacity_source == "ember":
+        ref_capacity_df = read_csv_nafix(snakemake.input.cap_ember)
+    else:
+        raise ValueError(f"Unknown capacity reference source: {capacity_source}")
     ref_capacity_df = ref_capacity_df[ref_capacity_df["Year"] == year].rename(
         columns={"Technology": "carrier"}
     )
     ref_capacity_df["carrier"] = harmonize_carrier_names(ref_capacity_df["carrier"])
 
-    ref_generation_df = read_csv_nafix(snakemake.input.generation_reference)
+    # Load Generation Reference dynamically
+    if generation_source == "ember":
+        ref_generation_df = read_csv_nafix(snakemake.input.gen_ember)
+    else:
+        raise ValueError(f"Unknown generation reference source: {generation_source}")
     ref_generation_df = ref_generation_df[ref_generation_df["Year"] == year].rename(
         columns={"Technology": "carrier"}
     )
