@@ -8,7 +8,6 @@
 import logging
 import os
 import shutil
-from itertools import product
 
 import country_converter as coco
 import numpy as np
@@ -17,6 +16,20 @@ import pypsa
 from helpers import configure_logging, harmonize_carrier_names, read_csv_nafix
 
 logger = logging.getLogger(__name__)
+
+
+def get_grade(deviation_pct):
+    if pd.isna(deviation_pct):
+        return ""
+    val = abs(deviation_pct)
+    if val < 5.0:
+        return "A"
+    elif val < 10.0:
+        return "B"
+    elif val < 20.0:
+        return "C"
+    else:
+        return "D"
 
 
 def compile_health_status(snakemake):
@@ -215,12 +228,13 @@ def compile_health_status(snakemake):
         ]
         generation["carrier"] = harmonize_carrier_names(generation["carrier"])
 
-        # Now loop through target countries and source combinations
+        # Now loop through target countries
         for country in target_countries:
             country_name = cc.convert(names=country, to="name")
             logger.info(f"  Comparing country {country_name} ({country})...")
 
-            # Compute PyPSA demand for this country (same across all source combinations)
+            # 1. Compute PyPSA Values (Once per country)
+            # Demand
             if "country" in n.buses.columns:
                 loads_country = n.loads.bus.map(n.buses.country)
                 country_loads = n.loads.index[loads_country == country]
@@ -235,7 +249,7 @@ def compile_health_status(snakemake):
                 * 1e-6
             )
 
-            # Compute PyPSA capacity for this country (same across all source combinations)
+            # Capacity
             installed_capacity_country = installed_capacity[
                 installed_capacity["region"].str.upper() == country
             ]
@@ -246,7 +260,7 @@ def compile_health_status(snakemake):
                 carriers, fill_value=0.0
             ).sum()
 
-            # Compute PyPSA generation for this country (same across all source combinations)
+            # Generation
             generation_country = generation[generation["region"].str.upper() == country]
             pypsa_gen_grouped = generation_country.groupby("carrier")[
                 "generation"
@@ -255,33 +269,48 @@ def compile_health_status(snakemake):
                 carriers, fill_value=0.0
             ).sum()
 
-            # Loop through all source combinations
-            for demand_src, capacity_src, generation_src in product(
-                demand_refs.keys(), capacity_refs.keys(), generation_refs.keys()
-            ):
-                ref_demand_df = demand_refs[demand_src]
-                ref_capacity_df = capacity_refs[capacity_src]
-                ref_generation_df = generation_refs[generation_src]
-
-                # 1. Demand comparison
+            # 2. Process Demand Sources
+            for demand_src, ref_demand_df in demand_refs.items():
                 ref_dem_row = ref_demand_df[ref_demand_df["region"] == country]
-                ref_demand = (
-                    ref_dem_row["demand"].sum() if not ref_dem_row.empty else 0.0
-                )
-
+                if ref_dem_row.empty:
+                    continue
+                ref_demand = ref_dem_row["demand"].sum()
                 demand_error_pct = (
-                    (pypsa_demand - ref_demand) / ref_demand * 100.0
+                    ((pypsa_demand - ref_demand) / ref_demand * 100.0)
                     if ref_demand > 0
                     else np.nan
                 )
 
-                # 2. Installed capacity comparison
+                records.append(
+                    {
+                        "scenario_key": scenario_key,
+                        "country_code": country,
+                        "country_name": country_name,
+                        "pillar": "demand",
+                        "metric": "total_demand",
+                        "pypsa_value": pypsa_demand,
+                        "reference_value": ref_demand,
+                        "reference_source": demand_src,
+                        "unit": "TWh",
+                        "deviation_pct": demand_error_pct,
+                        "grade": get_grade(demand_error_pct),
+                        "pypsa_earth_version": "v0.4.0",
+                        "model_year": year,
+                        "reference_year": year,
+                    }
+                )
+
+            # 3. Process Capacity Sources
+            for cap_src, ref_capacity_df in capacity_refs.items():
                 ref_cap_rows = ref_capacity_df[ref_capacity_df["region"] == country]
+                if ref_cap_rows.empty:
+                    continue
                 ref_cap_grouped = ref_cap_rows.groupby("carrier")["p_nom"].sum()
                 total_installed_capacity_ref = ref_cap_grouped.reindex(
                     carriers, fill_value=0.0
                 ).sum()
 
+                # MAE
                 df_cap = pd.DataFrame(index=carriers)
                 df_cap["pypsa"] = pypsa_cap_grouped.reindex(carriers, fill_value=0.0)
                 df_cap["ref"] = ref_cap_grouped.reindex(carriers, fill_value=0.0)
@@ -292,13 +321,68 @@ def compile_health_status(snakemake):
                     else 0.0
                 )
 
-                # 3. Generation comparison
+                # Capacity Deviation
+                cap_dev_pct = (
+                    (
+                        (total_installed_capacity_pypsa - total_installed_capacity_ref)
+                        / total_installed_capacity_ref
+                        * 100.0
+                    )
+                    if total_installed_capacity_ref > 0
+                    else np.nan
+                )
+
+                # Append total capacity row
+                records.append(
+                    {
+                        "scenario_key": scenario_key,
+                        "country_code": country,
+                        "country_name": country_name,
+                        "pillar": "installed_capacity",
+                        "metric": "total_capacity",
+                        "pypsa_value": total_installed_capacity_pypsa,
+                        "reference_value": total_installed_capacity_ref,
+                        "reference_source": cap_src,
+                        "unit": "MW",
+                        "deviation_pct": cap_dev_pct,
+                        "grade": get_grade(cap_dev_pct),
+                        "pypsa_earth_version": "v0.4.0",
+                        "model_year": year,
+                        "reference_year": year,
+                    }
+                )
+
+                # Append capacity MAE row
+                records.append(
+                    {
+                        "scenario_key": scenario_key,
+                        "country_code": country,
+                        "country_name": country_name,
+                        "pillar": "installed_capacity",
+                        "metric": "capacity_mae_pct",
+                        "pypsa_value": capacity_mae_pct,
+                        "reference_value": np.nan,
+                        "reference_source": cap_src,
+                        "unit": "%",
+                        "deviation_pct": capacity_mae_pct,
+                        "grade": get_grade(capacity_mae_pct),
+                        "pypsa_earth_version": "v0.4.0",
+                        "model_year": year,
+                        "reference_year": year,
+                    }
+                )
+
+            # 4. Process Generation Sources
+            for gen_src, ref_generation_df in generation_refs.items():
                 ref_gen_rows = ref_generation_df[ref_generation_df["region"] == country]
+                if ref_gen_rows.empty:
+                    continue
                 ref_gen_grouped = ref_gen_rows.groupby("carrier")["generation"].sum()
                 total_generation_ref = ref_gen_grouped.reindex(
                     carriers, fill_value=0.0
                 ).sum()
 
+                # MAE
                 df_gen_comp = pd.DataFrame(index=carriers)
                 df_gen_comp["pypsa"] = pypsa_gen_grouped.reindex(
                     carriers, fill_value=0.0
@@ -313,25 +397,54 @@ def compile_health_status(snakemake):
                     else 0.0
                 )
 
-                # Append record for this source combination
+                # Generation Deviation
+                gen_dev_pct = (
+                    (
+                        (total_generation_pypsa - total_generation_ref)
+                        / total_generation_ref
+                        * 100.0
+                    )
+                    if total_generation_ref > 0
+                    else np.nan
+                )
+
+                # Append total generation row
                 records.append(
                     {
                         "scenario_key": scenario_key,
                         "country_code": country,
                         "country_name": country_name,
+                        "pillar": "generation",
+                        "metric": "total_generation",
+                        "pypsa_value": total_generation_pypsa,
+                        "reference_value": total_generation_ref,
+                        "reference_source": gen_src,
+                        "unit": "TWh",
+                        "deviation_pct": gen_dev_pct,
+                        "grade": get_grade(gen_dev_pct),
                         "pypsa_earth_version": "v0.4.0",
-                        "demand_source": demand_src,
-                        "capacity_source": capacity_src,
-                        "generation_source": generation_src,
-                        "total_installed_capacity_ref": total_installed_capacity_ref,
-                        "total_installed_capacity_pypsa": total_installed_capacity_pypsa,
-                        "capacity_mae_pct": capacity_mae_pct,
-                        "total_generation_ref": total_generation_ref,
-                        "total_generation_pypsa": total_generation_pypsa,
-                        "generation_mae_pct": generation_mae_pct,
-                        "demand_ref": ref_demand,
-                        "demand_pypsa": pypsa_demand,
-                        "demand_error_pct": demand_error_pct,
+                        "model_year": year,
+                        "reference_year": year,
+                    }
+                )
+
+                # Append generation MAE row
+                records.append(
+                    {
+                        "scenario_key": scenario_key,
+                        "country_code": country,
+                        "country_name": country_name,
+                        "pillar": "generation",
+                        "metric": "generation_share_mae",
+                        "pypsa_value": generation_mae_pct,
+                        "reference_value": np.nan,
+                        "reference_source": gen_src,
+                        "unit": "%",
+                        "deviation_pct": generation_mae_pct,
+                        "grade": get_grade(generation_mae_pct),
+                        "pypsa_earth_version": "v0.4.0",
+                        "model_year": year,
+                        "reference_year": year,
                     }
                 )
 
