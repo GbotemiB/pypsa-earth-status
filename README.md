@@ -150,4 +150,4 @@ If you want to validate multiple solved networks (scenarios) across multiple cou
    ```
 
 4. **Review Results:**
-   The tidy long-format comparison is exported to `results/health_status.csv` (and copied to the parent folder `../health_status.csv`). Each row compares a single scenario, country, and metric against a single reference source, detailing relative error deviations and validation grades (`A`, `B`, `C`, `D`).
+   The tidy long-format comparison is exported to `results/health_status.csv`. Each row compares a single scenario, country, and metric against a single reference source, detailing relative error deviations and validation grades (`A`, `B`, `C`, `D`).

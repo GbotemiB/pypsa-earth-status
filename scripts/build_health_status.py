@@ -457,13 +457,6 @@ def compile_health_status(snakemake):
     health_status_df.to_csv(output_path, index=False)
     logger.info(f"Successfully compiled health_status.csv to {output_path}!")
 
-    # Copy to parent folder as requested
-    try:
-        shutil.copyfile(output_path, "../health_status.csv")
-        logger.info("Successfully copied health_status.csv to ../health_status.csv!")
-    except Exception as e:
-        logger.error(f"Failed to copy health_status.csv to ../health_status.csv: {e}")
-
 
 if __name__ == "__main__":
     if "snakemake" not in globals():
