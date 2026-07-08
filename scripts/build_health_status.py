@@ -371,7 +371,7 @@ def compile_health_status(snakemake):
                         "reference_source": cap_src,
                         "unit": "%",
                         "deviation_pct": capacity_mae_pct,
-                        "grade": get_grade(capacity_mae_pct),
+                        "grade": "",
                         "pypsa_earth_version": pypsa_earth_version,
                         "year": year,
                     }
@@ -445,15 +445,68 @@ def compile_health_status(snakemake):
                         "reference_source": gen_src,
                         "unit": "%",
                         "deviation_pct": generation_mae_pct,
-                        "grade": get_grade(generation_mae_pct),
+                        "grade": "",
                         "pypsa_earth_version": pypsa_earth_version,
                         "year": year,
                     }
                 )
 
-    # Save to CSV
+    # Save to CSV (with incremental merge)
     health_status_df = pd.DataFrame(records)
     output_path = snakemake.output.health_status
+
+    # Look for existing data to merge, checking both the direct path and the Snakemake temp backup
+    existing_path = None
+    if os.path.exists(output_path + ".tmp"):
+        existing_path = output_path + ".tmp"
+    elif os.path.exists(output_path):
+        existing_path = output_path
+
+    if existing_path is not None:
+        try:
+            existing_df = pd.read_csv(existing_path)
+
+            # Identify scenario-country combinations currently being validated
+            new_keys = set(
+                zip(health_status_df["scenario_key"], health_status_df["country_code"])
+            )
+
+            # Filter out existing records matching these new keys
+            keep_mask = ~existing_df.apply(
+                lambda r: (r["scenario_key"], r["country_code"]) in new_keys, axis=1
+            )
+            existing_filtered = existing_df[keep_mask]
+
+            # Concatenate remaining records with the new ones
+            health_status_df = pd.concat(
+                [existing_filtered, health_status_df], ignore_index=True
+            )
+
+            # Sort values to keep git diffs deterministic and easy to read
+            health_status_df = health_status_df.sort_values(
+                by=[
+                    "scenario_key",
+                    "country_code",
+                    "pillar",
+                    "metric",
+                    "reference_source",
+                ]
+            )
+            logger.info(
+                f"Successfully merged new results with existing data from {existing_path}."
+            )
+        except Exception as e:
+            logger.warning(
+                f"Could not merge with existing CSV: {e}. Overwriting instead."
+            )
+
+    # Clean up the temp backup file if it exists
+    if os.path.exists(output_path + ".tmp"):
+        try:
+            os.remove(output_path + ".tmp")
+        except Exception as e:
+            logger.warning(f"Failed to remove temp backup file: {e}")
+
     health_status_df.to_csv(output_path, index=False)
     logger.info(f"Successfully compiled health_status.csv to {output_path}!")
 

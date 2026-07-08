@@ -11,6 +11,10 @@ from shutil import copyfile, move
 
 from helpers import create_country_list
 
+# Create a temporary backup of the validation results before Snakemake deletes it
+if exists("results/health_status.csv"):
+    copyfile("results/health_status.csv", "results/health_status.csv.tmp")
+
 
 configfile: "config.yaml"
 
