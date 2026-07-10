@@ -244,3 +244,15 @@ rule build_health_status:
         ),
     script:
         "scripts/build_health_status.py"
+
+
+rule build_docs_tables:
+    input:
+        health_status="results/health_status.csv",
+    output:
+        overview="doc/validation/overview.md",
+        statistics="doc/validation/statistics.md",
+    log:
+        "logs/build_docs_tables.log",
+    script:
+        "scripts/build_docs_tables.py"
