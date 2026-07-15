@@ -57,10 +57,8 @@ def process_reference_statistics(inputs, outputs, config):
     to_csv_nafix(df_demand, outputs["demand"])
 
     # 2. Process installed capacity data
-    if capacity_source == "irena":
-        df_capacity = read_csv_nafix(inputs["cap_irena"])
-    elif capacity_source == "ember":
-        df_capacity = read_csv_nafix(inputs["cap_ember"])
+    if capacity_source in ["irena", "ember]:
+        df_capacity = read_csv_nafix(inputs[capacity_source])
     else:
         df_capacity = pd.DataFrame()
 
