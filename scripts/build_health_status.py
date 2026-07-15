@@ -296,6 +296,7 @@ def compile_health_status(snakemake):
                         "country_name": country_name,
                         "pillar": "demand",
                         "metric": "total_demand",
+                        "carrier": "total",
                         "pypsa_value": pypsa_demand,
                         "reference_value": ref_demand,
                         "reference_source": demand_src,
@@ -347,6 +348,7 @@ def compile_health_status(snakemake):
                         "country_name": country_name,
                         "pillar": "installed_capacity",
                         "metric": "total_capacity",
+                        "carrier": "total",
                         "pypsa_value": total_installed_capacity_pypsa,
                         "reference_value": total_installed_capacity_ref,
                         "reference_source": cap_src,
@@ -358,24 +360,33 @@ def compile_health_status(snakemake):
                     }
                 )
 
-                # Append capacity MAE row
-                records.append(
-                    {
-                        "scenario_key": scenario_key,
-                        "country_code": country,
-                        "country_name": country_name,
-                        "pillar": "installed_capacity",
-                        "metric": "capacity_mae_pct",
-                        "pypsa_value": capacity_mae_pct,
-                        "reference_value": np.nan,
-                        "reference_source": cap_src,
-                        "unit": "%",
-                        "deviation_pct": capacity_mae_pct,
-                        "grade": "",
-                        "pypsa_earth_version": pypsa_earth_version,
-                        "year": year,
-                    }
-                )
+                # Append individual capacity carrier rows
+                for carrier in carriers:
+                    pypsa_val = pypsa_cap_grouped.get(carrier, 0.0)
+                    ref_val = ref_cap_grouped.get(carrier, 0.0)
+                    dev_pct = (
+                        ((pypsa_val - ref_val) / ref_val * 100.0)
+                        if ref_val > 0
+                        else np.nan
+                    )
+                    records.append(
+                        {
+                            "scenario_key": scenario_key,
+                            "country_code": country,
+                            "country_name": country_name,
+                            "pillar": "installed_capacity",
+                            "metric": "capacity",
+                            "carrier": carrier,
+                            "pypsa_value": pypsa_val,
+                            "reference_value": ref_val,
+                            "reference_source": cap_src,
+                            "unit": "MW",
+                            "deviation_pct": dev_pct,
+                            "grade": "",
+                            "pypsa_earth_version": pypsa_earth_version,
+                            "year": year,
+                        }
+                    )
 
             # 4. Process Generation Sources
             for gen_src, ref_generation_df in generation_refs.items():
@@ -421,6 +432,7 @@ def compile_health_status(snakemake):
                         "country_name": country_name,
                         "pillar": "generation",
                         "metric": "total_generation",
+                        "carrier": "total",
                         "pypsa_value": total_generation_pypsa,
                         "reference_value": total_generation_ref,
                         "reference_source": gen_src,
@@ -432,24 +444,33 @@ def compile_health_status(snakemake):
                     }
                 )
 
-                # Append generation MAE row
-                records.append(
-                    {
-                        "scenario_key": scenario_key,
-                        "country_code": country,
-                        "country_name": country_name,
-                        "pillar": "generation",
-                        "metric": "generation_share_mae",
-                        "pypsa_value": generation_mae_pct,
-                        "reference_value": np.nan,
-                        "reference_source": gen_src,
-                        "unit": "%",
-                        "deviation_pct": generation_mae_pct,
-                        "grade": "",
-                        "pypsa_earth_version": pypsa_earth_version,
-                        "year": year,
-                    }
-                )
+                # Append individual generation carrier rows
+                for carrier in carriers:
+                    pypsa_val = pypsa_gen_grouped.get(carrier, 0.0)
+                    ref_val = ref_gen_grouped.get(carrier, 0.0)
+                    dev_pct = (
+                        ((pypsa_val - ref_val) / ref_val * 100.0)
+                        if ref_val > 0
+                        else np.nan
+                    )
+                    records.append(
+                        {
+                            "scenario_key": scenario_key,
+                            "country_code": country,
+                            "country_name": country_name,
+                            "pillar": "generation",
+                            "metric": "generation",
+                            "carrier": carrier,
+                            "pypsa_value": pypsa_val,
+                            "reference_value": ref_val,
+                            "reference_source": gen_src,
+                            "unit": "TWh",
+                            "deviation_pct": dev_pct,
+                            "grade": "",
+                            "pypsa_earth_version": pypsa_earth_version,
+                            "year": year,
+                        }
+                    )
 
     # Save to CSV (with incremental merge)
     health_status_df = pd.DataFrame(records)
@@ -489,6 +510,7 @@ def compile_health_status(snakemake):
                     "country_code",
                     "pillar",
                     "metric",
+                    "carrier",
                     "reference_source",
                 ]
             )
