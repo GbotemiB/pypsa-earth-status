@@ -7,6 +7,7 @@
 This script collects clean statistics data and merges the datasets to create reference statistics to be used to validate energy systems.
 """
 
+import logging
 import os
 
 import pandas as pd
@@ -16,6 +17,8 @@ from helpers import (
     read_csv_nafix,
     to_csv_nafix,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def filter_data_by_config(df, column, valid_values):
@@ -38,29 +41,32 @@ def process_reference_statistics(inputs, outputs, config):
     generation_source = datasets.get("generation", ["ember"])[0]
 
     # 1. Process demand data
-    if demand_source == "ourworldindata":
-        df_demand = read_csv_nafix(inputs["demand_owid"])
-        df_demand = filter_data_by_config(df_demand, "region", countries)
-        df_demand = df_demand[df_demand["year"] == year]
-        df_demand = (
-            df_demand[["region", "electricity_demand"]]
-            .rename(columns={"electricity_demand": "demand"})
-            .set_index("region")
-        )
-    elif demand_source == "ember":
-        df_demand = read_csv_nafix(inputs["demand_ember"])
+    demand_input_key = {"ourworldindata": "demand_owid", "ember": "demand_ember"}.get(
+        demand_source
+    )
+    if demand_input_key:
+        df_demand = read_csv_nafix(inputs[demand_input_key])
         df_demand = filter_data_by_config(df_demand, "region", countries)
         df_demand = df_demand[df_demand["Year"] == year]
         df_demand = df_demand[["region", "demand"]].set_index("region")
     else:
         df_demand = pd.DataFrame(columns=["demand"])
+        logger.warning(
+            f"Unknown or unset demand source '{demand_source}'; demand reference will be empty."
+        )
     to_csv_nafix(df_demand, outputs["demand"])
 
     # 2. Process installed capacity data
-    if capacity_source in ["irena", "ember"]:
-        df_capacity = read_csv_nafix(inputs[capacity_source])
+    capacity_input_key = {"irena": "cap_irena", "ember": "cap_ember"}.get(
+        capacity_source
+    )
+    if capacity_input_key:
+        df_capacity = read_csv_nafix(inputs[capacity_input_key])
     else:
         df_capacity = pd.DataFrame()
+        logger.warning(
+            f"Unknown or unset capacity source '{capacity_source}'; installed capacity reference will be empty."
+        )
 
     if not df_capacity.empty:
         df_capacity = filter_data_by_config(df_capacity, "region", countries)

@@ -56,7 +56,6 @@ def compile_health_status(snakemake):
         src = src.lower()
         if src == "ourworldindata":
             df = read_csv_nafix(snakemake.input.demand_owid)
-            df = df.rename(columns={"year": "Year", "electricity_demand": "demand"})
         elif src == "ember":
             df = read_csv_nafix(snakemake.input.demand_ember)
         else:
