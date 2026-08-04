@@ -16,6 +16,10 @@ from helpers import create_country_list
 configfile: "config.yaml"
 
 
+storage HTTP:
+    provider="http",
+
+
 validation_config = config["network_validation"]
 
 network_path = validation_config["network_path"]
@@ -66,6 +70,38 @@ rule build_reference_installed_capacity_irena:
         "scripts/build_reference_installed_capacity_irena.py"
 
 
+rule retrieve_reference_generation_irena:
+    input:
+        generation_irena=storage.HTTP(
+            "https://raw.githubusercontent.com/"
+            "pypsa-meets-earth/temporary_storage/main/"
+            "datasets/C-ELECGEN_20260713-113435.csv"
+        ),
+    output:
+        generation_irena="data/electricity_generation/C-ELECGEN_20260713-113435.csv",
+    run:
+        os.makedirs(
+            os.path.dirname(output.generation_irena),
+            exist_ok=True,
+        )
+        copyfile(
+            input.generation_irena,
+            output.generation_irena,
+        )
+
+
+rule build_reference_generation_irena:
+    input:
+        # Source: https://pxweb.irena.org/pxweb/en/IRENASTAT/IRENASTAT__Power%20Capacity%20and%20Generation/Country_ELECGEN_2025_H2_v-PX%201.px/
+        generation_irena="data/electricity_generation/C-ELECGEN_20260713-113435.csv",
+    output:
+        generation_irena="resources/clean/irena_generation_data.csv",
+    log:
+        "logs/build_reference_generation_irena.log",
+    script:
+        "scripts/build_reference_generation_irena.py"
+
+
 rule build_network_geojson:
     input:
         buscodes="data/electricity_transmission/Input - Center points.csv",
@@ -92,9 +128,13 @@ rule build_reference_statistics:
     input:
         demand_owid="resources/clean/owid_demand_data.csv",
         cap_irena="resources/clean/irena_capacity_data.csv",
+        generation_irena="resources/clean/irena_generation_data.csv",
     output:
         demand=f"{reference_statistics_dir}/demand.csv",
         installed_capacity=f"{reference_statistics_dir}/installed_capacity.csv",
+        electricity_generation=(
+            f"{reference_statistics_dir}/electricity_generation.csv"
+        ),
     log:
         f"{logs_dir}/build_reference_statistics.log",
     params:
@@ -112,6 +152,7 @@ rule build_network_statistics:
         demand=f"{network_statistics_dir}/demand.csv",
         installed_capacity=f"{network_statistics_dir}/installed_capacity.csv",
         optimal_capacity=f"{network_statistics_dir}/optimal_capacity.csv",
+        electricity_generation=f"{network_statistics_dir}/electricity_generation.csv",
     log:
         f"{logs_dir}/build_network_statistics.log",
     params:
@@ -132,16 +173,25 @@ rule make_comparison:
         demand_network=f"{network_statistics_dir}/demand.csv",
         installed_capacity_network=f"{network_statistics_dir}/installed_capacity.csv",
         optimal_capacity_network=f"{network_statistics_dir}/optimal_capacity.csv",
+        electricity_generation_network=(
+            f"{network_statistics_dir}/electricity_generation.csv"
+        ),
         network_geojson_network=f"{network_statistics_dir}/network_model.geojson",
         demand_reference=f"{reference_statistics_dir}/demand.csv",
         installed_capacity_reference=(
             f"{reference_statistics_dir}/installed_capacity.csv"
+        ),
+        electricity_generation_reference=(
+            f"{reference_statistics_dir}/electricity_generation.csv"
         ),
         network_geojson_reference=f"{reference_statistics_dir}/network_exist.geojson",
     output:
         demand_comparison=f"{results_dir}/tables/demand.csv",
         installed_capacity_comparison=f"{results_dir}/tables/installed_capacity.csv",
         optimal_capacity_comparison=f"{results_dir}/tables/optimal_capacity.csv",
+        electricity_generation_comparison=(
+            f"{results_dir}/tables/electricity_generation.csv"
+        ),
         network_comparison_geojson=f"{results_dir}/network_comparison.geojson",
     log:
         f"{logs_dir}/make_comparison.log",
@@ -154,6 +204,9 @@ rule visualize_data:
         demand_comparison=f"{results_dir}/tables/demand.csv",
         installed_capacity_comparison=f"{results_dir}/tables/installed_capacity.csv",
         optimal_capacity_comparison=f"{results_dir}/tables/optimal_capacity.csv",
+        electricity_generation_comparison=(
+            f"{results_dir}/tables/electricity_generation.csv"
+        ),
         osm_lines=os.path.join(
             config["plot_osm_grid_network"]["grid_path"],
             "all_clean_lines.geojson",
@@ -165,7 +218,10 @@ rule visualize_data:
     output:
         plot_demand=f"{results_dir}/figures/demand_comparison.png",
         plot_installed_capacity=(
-            f"{results_dir}/figures/" "installed_capacity_comparison.png"
+            f"{results_dir}/figures/installed_capacity_comparison.png"
+        ),
+        plot_electricity_generation=(
+            f"{results_dir}/figures/electricity_generation_comparison.png"
         ),
         plot_capacity_mix=f"{results_dir}/figures/capacity_mix_comparison.png",
         plot_capacity_grid=f"{results_dir}/figures/capacity_grid_comparison.png",

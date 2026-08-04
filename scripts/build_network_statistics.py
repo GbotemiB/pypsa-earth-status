@@ -33,29 +33,150 @@ def process_network_statistics(inputs, outputs):
     to_csv_nafix(demand, outputs["demand"])
 
     # Extract installed capacity
-    installed_capacity = network.generators[["carrier", "p_nom", "bus"]].reset_index()
-    installed_capacity["region"] = network.buses.loc[
-        installed_capacity.loc[installed_capacity.index, "bus"], "country"
-    ].reset_index()["country"]
+    generator_capacity = network.generators[["carrier", "p_nom", "bus"]].reset_index(
+        drop=True
+    )
+
+    storage_capacity = network.storage_units[["carrier", "p_nom", "bus"]].reset_index(
+        drop=True
+    )
+
+    installed_capacity = pd.concat(
+        [
+            generator_capacity,
+            storage_capacity,
+        ],
+        ignore_index=True,
+    )
+
+    installed_capacity["region"] = installed_capacity["bus"].map(
+        network.buses["country"]
+    )
+
     installed_capacity["carrier"] = harmonize_carrier_names(
         installed_capacity["carrier"]
     )
-    installed_capacity = installed_capacity.set_index("Generator")
-    installed_capacity = installed_capacity.groupby(["region", "carrier"]).sum()
-    installed_capacity.drop(columns="bus", inplace=True)
-    to_csv_nafix(installed_capacity, outputs["installed_capacity"])
 
-    # Extract optimal capacity
-    optimal_capacity = network.generators[["carrier", "p_nom_opt", "bus"]].reset_index()
-    optimal_capacity["region"] = network.buses.loc[
-        optimal_capacity.loc[optimal_capacity.index, "bus"], "country"
-    ].reset_index()["country"]
-    optimal_capacity = optimal_capacity.rename(columns={"p_nom_opt": "p_nom"})
+    installed_capacity = installed_capacity.groupby(["region", "carrier"])[
+        ["p_nom"]
+    ].sum()
+
+    to_csv_nafix(
+        installed_capacity,
+        outputs["installed_capacity"],
+    )
+
+    # Extract optimal capacity from generators and storage units
+    generator_optimal_capacity = (
+        network.generators[["carrier", "p_nom_opt", "bus"]]
+        .rename(columns={"p_nom_opt": "p_nom"})
+        .reset_index(drop=True)
+    )
+
+    storage_optimal_capacity = (
+        network.storage_units[["carrier", "p_nom_opt", "bus"]]
+        .rename(columns={"p_nom_opt": "p_nom"})
+        .reset_index(drop=True)
+    )
+
+    optimal_capacity = pd.concat(
+        [
+            generator_optimal_capacity,
+            storage_optimal_capacity,
+        ],
+        ignore_index=True,
+    )
+
+    optimal_capacity["region"] = optimal_capacity["bus"].map(network.buses["country"])
+
     optimal_capacity["carrier"] = harmonize_carrier_names(optimal_capacity["carrier"])
-    optimal_capacity.set_index("Generator")
-    optimal_capacity = optimal_capacity.groupby(["region", "carrier"]).sum()
-    optimal_capacity.drop(columns="bus", inplace=True)
-    to_csv_nafix(optimal_capacity, outputs["optimal_capacity"])
+
+    optimal_capacity = optimal_capacity.groupby(["region", "carrier"])[["p_nom"]].sum()
+
+    to_csv_nafix(
+        optimal_capacity,
+        outputs["optimal_capacity"],
+    )
+
+    # Extract annual electricity generation from generators
+    generator_generation = (
+        network.generators_t.p.reindex(
+            index=network.snapshots,
+            columns=network.generators.index,
+            fill_value=0.0,
+        )
+        .clip(lower=0.0)
+        .mul(
+            network.snapshot_weightings.generators.reindex(network.snapshots),
+            axis=0,
+        )
+        .sum(axis=0)
+        .rename("generation")
+        .to_frame()
+    )
+
+    generator_generation["carrier"] = network.generators.loc[
+        generator_generation.index,
+        "carrier",
+    ].to_numpy()
+
+    generator_generation["bus"] = network.generators.loc[
+        generator_generation.index,
+        "bus",
+    ].to_numpy()
+
+    # Extract annual positive discharge from storage units
+    storage_generation = (
+        network.storage_units_t.p.reindex(
+            index=network.snapshots,
+            columns=network.storage_units.index,
+            fill_value=0.0,
+        )
+        .clip(lower=0.0)
+        .mul(
+            network.snapshot_weightings.generators.reindex(network.snapshots),
+            axis=0,
+        )
+        .sum(axis=0)
+        .rename("generation")
+        .to_frame()
+    )
+
+    storage_generation["carrier"] = network.storage_units.loc[
+        storage_generation.index,
+        "carrier",
+    ].to_numpy()
+
+    storage_generation["bus"] = network.storage_units.loc[
+        storage_generation.index,
+        "bus",
+    ].to_numpy()
+
+    generation = pd.concat(
+        [
+            generator_generation,
+            storage_generation,
+        ],
+        ignore_index=True,
+    )
+
+    # Convert weighted MWh to GWh
+    generation["generation"] /= 1e3
+
+    generation["region"] = network.buses.loc[
+        generation["bus"],
+        "country",
+    ].to_numpy()
+
+    generation["carrier"] = harmonize_carrier_names(generation["carrier"])
+
+    generation = generation.reset_index(drop=True).groupby(["region", "carrier"]).sum()
+    generation.drop(columns="bus", inplace=True)
+
+    to_csv_nafix(
+        generation,
+        outputs["electricity_generation"],
+    )
 
 
 if __name__ == "__main__":

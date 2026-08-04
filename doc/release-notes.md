@@ -10,6 +10,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ### New Features and Major Changes
 
+* [Add electricity generation validation based on IRENA data PR #63](https://github.com/SPSUnipi/pypsa2smspp/pull/63)
+
+* [Add optional custom subfolder to resources and results folders PR #62](https://github.com/SPSUnipi/pypsa2smspp/pull/62)
+
+* [Link year and country parameters to build_reference_statistics rule PR #58](https://github.com/SPSUnipi/pypsa2smspp/pull/58)
+
 * [Decompose clean_data into carrier-source-specific rules PR #47](https://github.com/SPSUnipi/pypsa2smspp/pull/47)
 
 * [Drop pypsa-earth submodule PR #46](https://github.com/pypsa-meets-earth/pypsa-earth-status/pull/46)
@@ -38,6 +44,7 @@ SPDX-License-Identifier: CC-BY-4.0
 * [Include generation of geojson for network validation PR #3](https://github.com/pypsa-meets-earth/pypsa-earth-status/pull/3)
 * [Finalize workflow, visualization, add CI and documentation PR #6](https://github.com/pypsa-meets-earth/pypsa-earth-status/pull/6)
 * [Add documentation with MkDocs style PR #20](https://github.com/pypsa-meets-earth/pypsa-earth-status/pull/20)
+* [Add electricity generation validation based on IRENA data PR #63](https://github.com/pypsa-meets-earth/pypsa-earth-status/pull/63)
 
 ### Minor Changes and bug-fixing
 
