@@ -17,6 +17,9 @@ import os
 import numpy as np
 import pandas as pd
 from helpers import (
+    COARSE_WIND_SOURCES,
+    GENERATION_REFERENCE_UNIT_SCALE,
+    collapse_wind_carriers,
     configure_logging,
     read_csv_nafix,
     to_csv_nafix,
@@ -255,10 +258,20 @@ def compute_line_ratios_geojson(reference_path, model_path, output_path):
         json.dump(geojson_model, f)
 
 
+def _collapse_wind_and_regroup(df, value_col):
+    """
+    Fold offshore wind into onshore wind and re-sum so folded rows combine
+    instead of one silently overwriting the other on lookup.
+    """
+    df = df.copy()
+    df["carrier"] = collapse_wind_carriers(df["carrier"])
+    return df.groupby(["region", "carrier"], as_index=False)[value_col].sum()
+
+
 def make_comparison(inputs, outputs, datasets):
     demand_source = datasets.get("demand", ["ourworldindata"])[0]
     capacity_source = datasets.get("installed_capacity", ["irena"])[0]
-    generation_source = datasets.get("generation", ["ember"])[0]
+    generation_source = datasets.get("electricity_generation", ["ember"])[0]
 
     df_reference_installed_capacity = read_csv_nafix(
         inputs["installed_capacity_reference"]
@@ -267,12 +280,30 @@ def make_comparison(inputs, outputs, datasets):
         inputs["installed_capacity_reference"]
     )  # same source assumed
     df_reference_demand = read_csv_nafix(inputs["demand_reference"])
-    df_reference_generation = read_csv_nafix(inputs["generation_reference"])
+    df_reference_generation = read_csv_nafix(inputs["electricity_generation_reference"])
+    df_reference_generation["generation"] *= GENERATION_REFERENCE_UNIT_SCALE.get(
+        generation_source, 1.0
+    )
 
     df_network_installed_capacity = read_csv_nafix(inputs["installed_capacity_network"])
     df_network_optimal_capacity = read_csv_nafix(inputs["optimal_capacity_network"])
     df_network_demand = read_csv_nafix(inputs["demand_network"])
-    df_network_generation = read_csv_nafix(inputs["generation_network"])
+    df_network_generation = read_csv_nafix(inputs["electricity_generation_network"])
+
+    # The network side always keeps onshore/offshore wind distinct. Fold them
+    # together when comparing against a reference source that doesn't split them,
+    # re-aggregating so folded rows are summed rather than silently dropped.
+    if capacity_source in COARSE_WIND_SOURCES:
+        df_network_installed_capacity = _collapse_wind_and_regroup(
+            df_network_installed_capacity, "p_nom"
+        )
+        df_network_optimal_capacity = _collapse_wind_and_regroup(
+            df_network_optimal_capacity, "p_nom"
+        )
+    if generation_source in COARSE_WIND_SOURCES:
+        df_network_generation = _collapse_wind_and_regroup(
+            df_network_generation, "generation"
+        )
 
     installed_capacity_comparison = compare_capacity_statistics(
         df_reference_installed_capacity, df_network_installed_capacity, capacity_source
@@ -283,7 +314,7 @@ def make_comparison(inputs, outputs, datasets):
     demand_comparison = compare_demand_statistics(
         df_reference_demand, df_network_demand, demand_source
     )
-    generation_comparison = compare_generation_statistics(
+    electricity_generation_comparison = compare_generation_statistics(
         df_reference_generation, df_network_generation, generation_source
     )
 
@@ -292,7 +323,10 @@ def make_comparison(inputs, outputs, datasets):
     )
     to_csv_nafix(optimal_capacity_comparison, outputs["optimal_capacity_comparison"])
     to_csv_nafix(demand_comparison, outputs["demand_comparison"])
-    to_csv_nafix(generation_comparison, outputs["generation_comparison"])
+    to_csv_nafix(
+        electricity_generation_comparison,
+        outputs["electricity_generation_comparison"],
+    )
 
     compute_line_ratios_geojson(
         reference_path=inputs["network_geojson_reference"],

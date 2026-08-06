@@ -38,7 +38,7 @@ def process_reference_statistics(inputs, outputs, config):
     datasets = config.get("datasets", {})
     demand_source = datasets.get("demand", ["ourworldindata"])[0]
     capacity_source = datasets.get("installed_capacity", ["irena"])[0]
-    generation_source = datasets.get("generation", ["ember"])[0]
+    generation_source = datasets.get("electricity_generation", ["ember"])[0]
 
     # 1. Process demand data
     demand_input_key = {"ourworldindata": "demand_owid", "ember": "demand_ember"}.get(
@@ -79,22 +79,28 @@ def process_reference_statistics(inputs, outputs, config):
         df_capacity = pd.DataFrame(columns=["carrier", "p_nom"]).set_index("carrier")
     to_csv_nafix(df_capacity, outputs["installed_capacity"])
 
-    # 3. Process generation mix data
-    if generation_source == "ember":
-        df_gen = read_csv_nafix(inputs["gen_ember"])
+    # 3. Process electricity generation data
+    generation_input_key = {"ember": "gen_ember", "irena": "generation_irena"}.get(
+        generation_source
+    )
+    if generation_input_key:
+        df_generation = read_csv_nafix(inputs[generation_input_key])
+        df_generation = filter_data_by_config(df_generation, "region", countries)
+        df_generation = df_generation[df_generation["Year"] == year]
+        df_generation = df_generation.rename(columns={"Technology": "carrier"})
+        df_generation = df_generation[["region", "carrier", "generation"]].set_index(
+            "region"
+        )
+        df_generation["carrier"] = harmonize_carrier_names(df_generation["carrier"])
+        df_generation = df_generation.groupby(["region", "carrier"]).sum()
     else:
-        df_gen = pd.DataFrame()
-
-    if not df_gen.empty:
-        df_gen = filter_data_by_config(df_gen, "region", countries)
-        df_gen = df_gen[df_gen["Year"] == year]
-        df_gen = df_gen.rename(columns={"Technology": "carrier"})
-        df_gen = df_gen[["region", "carrier", "generation"]].set_index("region")
-        df_gen["carrier"] = harmonize_carrier_names(df_gen["carrier"])
-        df_gen = df_gen.groupby(["region", "carrier"]).sum()
-    else:
-        df_gen = pd.DataFrame(columns=["carrier", "generation"]).set_index("carrier")
-    to_csv_nafix(df_gen, outputs["generation"])
+        df_generation = pd.DataFrame(columns=["carrier", "generation"]).set_index(
+            "carrier"
+        )
+        logger.warning(
+            f"Unknown or unset electricity generation source '{generation_source}'; electricity generation reference will be empty."
+        )
+    to_csv_nafix(df_generation, outputs["electricity_generation"])
 
 
 if __name__ == "__main__":

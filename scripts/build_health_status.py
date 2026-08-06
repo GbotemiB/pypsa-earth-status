@@ -13,9 +13,26 @@ import country_converter as coco
 import numpy as np
 import pandas as pd
 import pypsa
-from helpers import configure_logging, harmonize_carrier_names, read_csv_nafix
+from helpers import (
+    COARSE_WIND_SOURCES,
+    GENERATION_REFERENCE_UNIT_SCALE,
+    collapse_wind_carriers,
+    configure_logging,
+    harmonize_carrier_names,
+    read_csv_nafix,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _collapse_wind_grouped(series):
+    """
+    Fold offshore wind into onshore wind for a carrier-indexed Series,
+    summing rows that collapse onto the same carrier.
+    """
+    collapsed = series.copy()
+    collapsed.index = collapse_wind_carriers(pd.Series(collapsed.index))
+    return collapsed.groupby(level=0).sum()
 
 
 def get_grade(deviation_pct):
@@ -80,20 +97,24 @@ def compile_health_status(snakemake):
 
     # Preload all configured generation reference sources
     generation_refs = {}
-    for src in datasets.get("generation", ["ember"]):
+    for src in datasets.get("electricity_generation", ["ember"]):
         src = src.lower()
         if src == "ember":
             df = read_csv_nafix(snakemake.input.gen_ember)
+        elif src == "irena":
+            df = read_csv_nafix(snakemake.input.generation_irena)
         else:
             logger.warning(f"Unknown generation source: {src}, skipping.")
             continue
         df = df[df["Year"] == year].rename(columns={"Technology": "carrier"})
         df["carrier"] = harmonize_carrier_names(df["carrier"])
+        df["generation"] *= GENERATION_REFERENCE_UNIT_SCALE.get(src, 1.0)
         generation_refs[src] = df
 
     carriers = [
         "pv",
-        "wind",
+        "onwind",
+        "offwind",
         "hydro",
         "ccgt",
         "coal",
@@ -190,7 +211,7 @@ def compile_health_status(snakemake):
         )
 
         gen_p_t = n.generators_t.p.multiply(n.snapshot_weightings.objective, axis=0)
-        gen_gen_sum = gen_p_t.sum() * 1e-6
+        gen_gen_sum = gen_p_t.sum() * 1e-3
         df_gen = pd.DataFrame(
             {
                 "generation": gen_gen_sum,
@@ -209,7 +230,7 @@ def compile_health_status(snakemake):
             store_p_t = n.storage_units_t.p.multiply(
                 n.snapshot_weightings.objective, axis=0
             )
-            store_gen_sum = store_p_t.sum() * 1e-6
+            store_gen_sum = store_p_t.sum() * 1e-3
             df_store = pd.DataFrame(
                 {
                     "generation": store_gen_sum,
@@ -316,10 +337,18 @@ def compile_health_status(snakemake):
                     carriers, fill_value=0.0
                 ).sum()
 
-                # MAE
+                # MAE: fold onshore/offshore wind together when this source
+                # (e.g. Ember) doesn't distinguish them, so the comparison
+                # stays apples-to-apples for this source only.
+                pypsa_cap_for_mae = pypsa_cap_grouped
+                ref_cap_for_mae = ref_cap_grouped
+                if cap_src in COARSE_WIND_SOURCES:
+                    pypsa_cap_for_mae = _collapse_wind_grouped(pypsa_cap_grouped)
+                    ref_cap_for_mae = _collapse_wind_grouped(ref_cap_grouped)
+
                 df_cap = pd.DataFrame(index=carriers)
-                df_cap["pypsa"] = pypsa_cap_grouped.reindex(carriers, fill_value=0.0)
-                df_cap["ref"] = ref_cap_grouped.reindex(carriers, fill_value=0.0)
+                df_cap["pypsa"] = pypsa_cap_for_mae.reindex(carriers, fill_value=0.0)
+                df_cap["ref"] = ref_cap_for_mae.reindex(carriers, fill_value=0.0)
                 capacity_difference_mae = (df_cap["pypsa"] - df_cap["ref"]).abs().mean()
                 capacity_mae_pct = (
                     (capacity_difference_mae / total_installed_capacity_ref * 100.0)
@@ -386,12 +415,19 @@ def compile_health_status(snakemake):
                     carriers, fill_value=0.0
                 ).sum()
 
-                # MAE
+                # MAE: same onshore/offshore wind folding as capacity, scoped
+                # to sources that don't distinguish them.
+                pypsa_gen_for_mae = pypsa_gen_grouped
+                ref_gen_for_mae = ref_gen_grouped
+                if gen_src in COARSE_WIND_SOURCES:
+                    pypsa_gen_for_mae = _collapse_wind_grouped(pypsa_gen_grouped)
+                    ref_gen_for_mae = _collapse_wind_grouped(ref_gen_grouped)
+
                 df_gen_comp = pd.DataFrame(index=carriers)
-                df_gen_comp["pypsa"] = pypsa_gen_grouped.reindex(
+                df_gen_comp["pypsa"] = pypsa_gen_for_mae.reindex(
                     carriers, fill_value=0.0
                 )
-                df_gen_comp["ref"] = ref_gen_grouped.reindex(carriers, fill_value=0.0)
+                df_gen_comp["ref"] = ref_gen_for_mae.reindex(carriers, fill_value=0.0)
                 generation_difference_mae = (
                     (df_gen_comp["pypsa"] - df_gen_comp["ref"]).abs().mean()
                 )
@@ -423,7 +459,7 @@ def compile_health_status(snakemake):
                         "pypsa_value": total_generation_pypsa,
                         "reference_value": total_generation_ref,
                         "reference_source": gen_src,
-                        "unit": "TWh",
+                        "unit": "GWh",
                         "deviation_pct": gen_dev_pct,
                         "grade": get_grade(gen_dev_pct),
                         "pypsa_earth_version": pypsa_earth_version,

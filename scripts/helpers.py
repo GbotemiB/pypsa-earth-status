@@ -20,6 +20,35 @@ NA_VALUES = ["NULL", "", "N/A", "NAN", "NaN", "nan", "Nan", "n/a", "null"]
 REGIONS_CONFIG = "regions_definition_config.yaml"
 
 
+IRENA_TECHNOLOGY_MAPPING = {
+    "Solar photovoltaic": "solar",
+    "Solar thermal energy": "solar",
+    "Onshore wind energy": "onwind",
+    "Offshore wind energy": "offwind-dc",
+    "Renewable hydropower": "ror",
+    "Mixed Hydro Plants": "ror",
+    "Marine energy": "other",
+    "Solid biofuels": "biomass",
+    "Liquid biofuels": "biomass",
+    "Biogas": "biomass",
+    "Renewable municipal waste": "waste",
+    "Geothermal energy": "geothermal",
+    "Coal and peat": "coal",
+    "Oil": "oil",
+    "Natural gas": "CCGT",
+    "Fossil fuels n.e.s.": "oil",
+    "Nuclear": "nuclear",
+    "Other non-renewable energy": "other",
+}
+
+
+IRENA_GENERATION_EXCLUDED_TECHNOLOGIES = {
+    "total renewable",
+    "total non-renewable",
+    "pumped storage",
+}
+
+
 def handle_exception(exc_type, exc_value, exc_traceback):
     """
     Customize error tracebacks written through the workflow logger.
@@ -372,19 +401,17 @@ def harmonize_carrier_names(series):
         {
             "solar": "pv",
             "csp": "pv",
-            "wind": "wind",
-            "onwind": "wind",
-            "offwind": "wind",
+            "wind": "onwind",
+            "offwind": "offwind",
             "ror": "hydro",
             "run of river": "hydro",
             "storage hydro": "hydro",
             "pumped hydro": "hydro",
             "phs": "hydro",
-            "wind onshore": "wind",
-            "onshore": "wind",
-            "wind offshore": "wind",
-            "offwind-dc": "wind",
-            "offwind-ac": "wind",
+            "wind onshore": "onshore",
+            "wind offshore": "offwind",
+            "offwind-dc": "offwind",
+            "offwind-ac": "offwind",
             "hard coal": "coal",
             "lignite": "coal",
             "brown coal": "coal",
@@ -393,3 +420,21 @@ def harmonize_carrier_names(series):
             "multiple": "other",
         }
     )
+
+
+COARSE_WIND_SOURCES = {"ember"}  # sources that report a single combined wind category
+
+
+def collapse_wind_carriers(series):
+    """
+    Fold offshore wind into onshore wind for comparisons against a reference
+    source that does not distinguish onshore from offshore wind (e.g. Ember).
+    """
+    return series.replace({"offwind": "onwind"})
+
+
+# Electricity generation reference sources report in different units:
+# Ember's generation data is in TWh, IRENA's is in GWh. Network-side generation
+# is computed in GWh (see build_network_statistics.py), so a reference source's
+# generation values must be scaled by this factor to match before comparing.
+GENERATION_REFERENCE_UNIT_SCALE = {"ember": 1000.0}
