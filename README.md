@@ -145,7 +145,7 @@ If you want to validate multiple solved networks (scenarios) across multiple cou
    datasets:
      demand: ["ourworldindata", "ember"]
      installed_capacity: ["irena", "ember"]
-     generation: ["ember"]
+     electricity_generation: ["ember", "irena"]
    ```
 
 3. **Execute the rule:**
@@ -156,3 +156,5 @@ If you want to validate multiple solved networks (scenarios) across multiple cou
 
 4. **Review Results:**
    The tidy long-format comparison is exported to `results/health_status.csv`. Each row compares a single scenario, country, and metric against a single reference source, detailing relative error deviations and validation grades (`A`, `B`, `C`, `D`).
+
+   Unlike the other validation outputs, this file is not written to a per-validation subfolder. It is a global tracker kept at a single stable path so that results accumulate across scenarios and validation configurations: each run replaces only the rows for the scenario-country pairs it just validated and leaves all other rows untouched. Running the rule with no `networks:` configured therefore leaves any existing results unchanged.
