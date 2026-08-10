@@ -24,6 +24,24 @@ from helpers import (
 
 logger = logging.getLogger(__name__)
 
+# Column schema of health_status.csv, also used to emit a valid header-only
+# file when there are no results to report.
+HEALTH_STATUS_COLUMNS = [
+    "scenario_key",
+    "country_code",
+    "country_name",
+    "pillar",
+    "metric",
+    "pypsa_value",
+    "reference_value",
+    "reference_source",
+    "unit",
+    "deviation_pct",
+    "grade",
+    "pypsa_earth_version",
+    "year",
+]
+
 
 def _collapse_wind_grouped(series):
     """
@@ -58,8 +76,13 @@ def compile_health_status(snakemake):
     # Networks dictionary
     networks = snakemake.params.networks
     if not networks:
-        logger.warning("No networks defined in configuration networks list.")
-        return
+        # Fall through rather than returning: the rule must still write its
+        # declared output, otherwise Snakemake fails and any previously
+        # collected results are lost along with the deleted output file.
+        logger.warning(
+            "No networks defined in configuration networks list. "
+            "Any existing health status results will be preserved unchanged."
+        )
 
     cc = coco.CountryConverter()
 
@@ -487,7 +510,8 @@ def compile_health_status(snakemake):
                 )
 
     # Save to CSV (with incremental merge)
-    health_status_df = pd.DataFrame(records)
+    # Pin the columns so an empty run still produces a valid header-only file.
+    health_status_df = pd.DataFrame(records, columns=HEALTH_STATUS_COLUMNS)
     output_path = snakemake.output.health_status
 
     # Look for existing data to merge, checking both the direct path and the Snakemake temp backup
@@ -497,20 +521,40 @@ def compile_health_status(snakemake):
     elif os.path.exists(output_path):
         existing_path = output_path
 
+    if health_status_df.empty and existing_path is not None:
+        # No new results: restore the previous file verbatim instead of
+        # round-tripping it through pandas, which would rewrite float
+        # formatting and produce a spurious diff.
+        if existing_path != output_path:
+            shutil.copyfile(existing_path, output_path)
+            os.remove(existing_path)
+        logger.info(f"No new results; preserved existing {output_path} unchanged.")
+        return
+
     if existing_path is not None:
         try:
             existing_df = pd.read_csv(existing_path)
 
-            # Identify scenario-country combinations currently being validated
-            new_keys = set(
-                zip(health_status_df["scenario_key"], health_status_df["country_code"])
-            )
+            if health_status_df.empty:
+                # Nothing new to report, so keep the existing records as they are
+                # instead of truncating the file.
+                existing_filtered = existing_df
+            elif existing_df.empty:
+                existing_filtered = existing_df
+            else:
+                # Identify scenario-country combinations currently being validated
+                new_keys = set(
+                    zip(
+                        health_status_df["scenario_key"],
+                        health_status_df["country_code"],
+                    )
+                )
 
-            # Filter out existing records matching these new keys
-            keep_mask = ~existing_df.apply(
-                lambda r: (r["scenario_key"], r["country_code"]) in new_keys, axis=1
-            )
-            existing_filtered = existing_df[keep_mask]
+                # Filter out existing records matching these new keys
+                keep_mask = ~existing_df.apply(
+                    lambda r: (r["scenario_key"], r["country_code"]) in new_keys, axis=1
+                )
+                existing_filtered = existing_df[keep_mask]
 
             # Concatenate remaining records with the new ones
             health_status_df = pd.concat(
