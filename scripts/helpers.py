@@ -422,19 +422,19 @@ def harmonize_carrier_names(series):
     )
 
 
-COARSE_WIND_SOURCES = {"ember"}  # sources that report a single combined wind category
-
-
 def collapse_wind_carriers(series):
     """
-    Fold offshore wind into onshore wind for comparisons against a reference
-    source that does not distinguish onshore from offshore wind (e.g. Ember).
+    Fold offshore wind into onshore wind.
     """
     return series.replace({"offwind": "onwind"})
 
 
-# Electricity generation reference sources report in different units:
-# Ember's generation data is in TWh, IRENA's is in GWh. Network-side generation
-# is computed in GWh (see build_network_statistics.py), so a reference source's
-# generation values must be scaled by this factor to match before comparing.
-GENERATION_REFERENCE_UNIT_SCALE = {"ember": 1000.0}
+def reference_splits_offshore_wind(df):
+    """
+    Whether a reference dataset reports offshore wind separately from onshore.
+
+    Evaluate this on the full dataset rather than on a per-country slice: a
+    country without offshore wind carries no "offwind" row even under a source
+    that does distinguish the two.
+    """
+    return "offwind" in set(df["carrier"])

@@ -14,12 +14,11 @@ import numpy as np
 import pandas as pd
 import pypsa
 from helpers import (
-    COARSE_WIND_SOURCES,
-    GENERATION_REFERENCE_UNIT_SCALE,
     collapse_wind_carriers,
     configure_logging,
     harmonize_carrier_names,
     read_csv_nafix,
+    reference_splits_offshore_wind,
 )
 
 logger = logging.getLogger(__name__)
@@ -103,8 +102,11 @@ def compile_health_status(snakemake):
             continue
         demand_refs[src] = df[df["Year"] == year]
 
-    # Preload all configured capacity reference sources
+    # Preload all configured capacity reference sources. Whether a source splits
+    # offshore from onshore wind is evaluated once on the full dataset, since a
+    # per-country slice may simply have no offshore wind to report.
     capacity_refs = {}
+    capacity_refs_split_offwind = {}
     for src in datasets.get("installed_capacity", ["ember"]):
         src = src.lower()
         if src == "irena":
@@ -117,9 +119,11 @@ def compile_health_status(snakemake):
         df = df[df["Year"] == year].rename(columns={"Technology": "carrier"})
         df["carrier"] = harmonize_carrier_names(df["carrier"])
         capacity_refs[src] = df
+        capacity_refs_split_offwind[src] = reference_splits_offshore_wind(df)
 
     # Preload all configured generation reference sources
     generation_refs = {}
+    generation_refs_split_offwind = {}
     for src in datasets.get("electricity_generation", ["ember"]):
         src = src.lower()
         if src == "ember":
@@ -131,8 +135,8 @@ def compile_health_status(snakemake):
             continue
         df = df[df["Year"] == year].rename(columns={"Technology": "carrier"})
         df["carrier"] = harmonize_carrier_names(df["carrier"])
-        df["generation"] *= GENERATION_REFERENCE_UNIT_SCALE.get(src, 1.0)
         generation_refs[src] = df
+        generation_refs_split_offwind[src] = reference_splits_offshore_wind(df)
 
     carriers = [
         "pv",
@@ -361,11 +365,11 @@ def compile_health_status(snakemake):
                 ).sum()
 
                 # MAE: fold onshore/offshore wind together when this source
-                # (e.g. Ember) doesn't distinguish them, so the comparison
-                # stays apples-to-apples for this source only.
+                # doesn't distinguish them, so the comparison stays
+                # apples-to-apples for this source only.
                 pypsa_cap_for_mae = pypsa_cap_grouped
                 ref_cap_for_mae = ref_cap_grouped
-                if cap_src in COARSE_WIND_SOURCES:
+                if not capacity_refs_split_offwind[cap_src]:
                     pypsa_cap_for_mae = _collapse_wind_grouped(pypsa_cap_grouped)
                     ref_cap_for_mae = _collapse_wind_grouped(ref_cap_grouped)
 
@@ -442,7 +446,7 @@ def compile_health_status(snakemake):
                 # to sources that don't distinguish them.
                 pypsa_gen_for_mae = pypsa_gen_grouped
                 ref_gen_for_mae = ref_gen_grouped
-                if gen_src in COARSE_WIND_SOURCES:
+                if not generation_refs_split_offwind[gen_src]:
                     pypsa_gen_for_mae = _collapse_wind_grouped(pypsa_gen_grouped)
                     ref_gen_for_mae = _collapse_wind_grouped(ref_gen_grouped)
 

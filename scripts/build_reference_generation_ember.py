@@ -43,8 +43,8 @@ def clean_generation_ember(df_ember):
     }
     df["Technology"] = df["Variable"].map(mapping)
 
-    # Conversion - already in TWh
-    df["generation"] = pd.to_numeric(df["Value"], errors="coerce")
+    # Ember reports generation in TWh; convert to GWh to match the network side
+    df["generation"] = pd.to_numeric(df["Value"], errors="coerce") * 1e3
 
     # Drop unmapped technologies
     df = df.dropna(subset=["Technology"])

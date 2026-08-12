@@ -17,11 +17,10 @@ import os
 import numpy as np
 import pandas as pd
 from helpers import (
-    COARSE_WIND_SOURCES,
-    GENERATION_REFERENCE_UNIT_SCALE,
     collapse_wind_carriers,
     configure_logging,
     read_csv_nafix,
+    reference_splits_offshore_wind,
     to_csv_nafix,
 )
 
@@ -281,9 +280,6 @@ def make_comparison(inputs, outputs, datasets):
     )  # same source assumed
     df_reference_demand = read_csv_nafix(inputs["demand_reference"])
     df_reference_generation = read_csv_nafix(inputs["electricity_generation_reference"])
-    df_reference_generation["generation"] *= GENERATION_REFERENCE_UNIT_SCALE.get(
-        generation_source, 1.0
-    )
 
     df_network_installed_capacity = read_csv_nafix(inputs["installed_capacity_network"])
     df_network_optimal_capacity = read_csv_nafix(inputs["optimal_capacity_network"])
@@ -293,14 +289,14 @@ def make_comparison(inputs, outputs, datasets):
     # The network side always keeps onshore/offshore wind distinct. Fold them
     # together when comparing against a reference source that doesn't split them,
     # re-aggregating so folded rows are summed rather than silently dropped.
-    if capacity_source in COARSE_WIND_SOURCES:
+    if not reference_splits_offshore_wind(df_reference_installed_capacity):
         df_network_installed_capacity = _collapse_wind_and_regroup(
             df_network_installed_capacity, "p_nom"
         )
         df_network_optimal_capacity = _collapse_wind_and_regroup(
             df_network_optimal_capacity, "p_nom"
         )
-    if generation_source in COARSE_WIND_SOURCES:
+    if not reference_splits_offshore_wind(df_reference_generation):
         df_network_generation = _collapse_wind_and_regroup(
             df_network_generation, "generation"
         )
