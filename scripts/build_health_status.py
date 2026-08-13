@@ -94,7 +94,7 @@ def compile_health_status(snakemake):
     for src in datasets.get("demand", ["ember"]):
         src = src.lower()
         if src == "ourworldindata":
-            df = read_csv_nafix(snakemake.input.demand_owid)
+            df = read_csv_nafix(snakemake.input.demand_ourworldindata)
         elif src == "ember":
             df = read_csv_nafix(snakemake.input.demand_ember)
         else:
@@ -129,7 +129,7 @@ def compile_health_status(snakemake):
         if src == "ember":
             df = read_csv_nafix(snakemake.input.gen_ember)
         elif src == "irena":
-            df = read_csv_nafix(snakemake.input.generation_irena)
+            df = read_csv_nafix(snakemake.input.gen_irena)
         else:
             logger.warning(f"Unknown generation source: {src}, skipping.")
             continue

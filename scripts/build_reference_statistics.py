@@ -41,31 +41,25 @@ def process_reference_statistics(inputs, outputs, config):
     generation_source = datasets.get("electricity_generation", ["ember"])[0]
 
     # 1. Process demand data
-    demand_input_key = {"ourworldindata": "demand_owid", "ember": "demand_ember"}.get(
-        demand_source
-    )
-    if demand_input_key:
+    demand_input_key = f"demand_{demand_source}"
+    if demand_source:
         df_demand = read_csv_nafix(inputs[demand_input_key])
         df_demand = filter_data_by_config(df_demand, "region", countries)
         df_demand = df_demand[df_demand["Year"] == year]
         df_demand = df_demand[["region", "demand"]].set_index("region")
     else:
         df_demand = pd.DataFrame(columns=["demand"])
-        logger.warning(
-            f"Unknown or unset demand source '{demand_source}'; demand reference will be empty."
-        )
+        logger.warning("No demand source configured; demand reference will be empty.")
     to_csv_nafix(df_demand, outputs["demand"])
 
     # 2. Process installed capacity data
-    capacity_input_key = {"irena": "cap_irena", "ember": "cap_ember"}.get(
-        capacity_source
-    )
-    if capacity_input_key:
+    capacity_input_key = f"cap_{capacity_source}"
+    if capacity_source:
         df_capacity = read_csv_nafix(inputs[capacity_input_key])
     else:
         df_capacity = pd.DataFrame()
         logger.warning(
-            f"Unknown or unset capacity source '{capacity_source}'; installed capacity reference will be empty."
+            "No installed capacity source configured; installed capacity reference will be empty."
         )
 
     if not df_capacity.empty:
@@ -80,10 +74,8 @@ def process_reference_statistics(inputs, outputs, config):
     to_csv_nafix(df_capacity, outputs["installed_capacity"])
 
     # 3. Process electricity generation data
-    generation_input_key = {"ember": "gen_ember", "irena": "generation_irena"}.get(
-        generation_source
-    )
-    if generation_input_key:
+    generation_input_key = f"gen_{generation_source}"
+    if generation_source:
         df_generation = read_csv_nafix(inputs[generation_input_key])
         df_generation = filter_data_by_config(df_generation, "region", countries)
         df_generation = df_generation[df_generation["Year"] == year]
@@ -98,7 +90,7 @@ def process_reference_statistics(inputs, outputs, config):
             "carrier"
         )
         logger.warning(
-            f"Unknown or unset electricity generation source '{generation_source}'; electricity generation reference will be empty."
+            "No electricity generation source configured; electricity generation reference will be empty."
         )
     to_csv_nafix(df_generation, outputs["electricity_generation"])
 

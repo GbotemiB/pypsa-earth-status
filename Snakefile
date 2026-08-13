@@ -175,12 +175,12 @@ rule build_network_geojson:
 
 rule build_reference_statistics:
     input:
-        demand_owid="resources/clean/owid_demand_data.csv",
+        demand_ourworldindata="resources/clean/owid_demand_data.csv",
         demand_ember="resources/clean/ember_demand_data.csv",
         cap_irena="resources/clean/irena_capacity_data.csv",
         cap_ember="resources/clean/ember_capacity_data.csv",
         gen_ember="resources/clean/ember_generation_data.csv",
-        generation_irena="resources/clean/irena_generation_data.csv",
+        gen_irena="resources/clean/irena_generation_data.csv",
     output:
         demand=f"{reference_statistics_dir}/demand.csv",
         installed_capacity=f"{reference_statistics_dir}/installed_capacity.csv",
@@ -307,12 +307,12 @@ rule create_example_DE:
 
 rule build_health_status:
     input:
-        demand_owid="resources/clean/owid_demand_data.csv",
+        demand_ourworldindata="resources/clean/owid_demand_data.csv",
         demand_ember="resources/clean/ember_demand_data.csv",
         cap_irena="resources/clean/irena_capacity_data.csv",
         cap_ember="resources/clean/ember_capacity_data.csv",
         gen_ember="resources/clean/ember_generation_data.csv",
-        generation_irena="resources/clean/irena_generation_data.csv",
+        gen_irena="resources/clean/irena_generation_data.csv",
     output:
         health_status="results/health_status.csv",
     log:
