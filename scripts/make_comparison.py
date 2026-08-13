@@ -25,6 +25,22 @@ from helpers import (
 )
 
 
+def compute_differences(network_val, reference_val):
+    """
+    Signed, absolute and relative differences between a network value and its
+    reference. The relative difference is a percentage of the reference and is
+    undefined when the reference is zero.
+    """
+    difference = network_val - reference_val
+    return {
+        "difference": difference,
+        "absolute_difference": abs(difference),
+        "relative_difference_pct": (
+            difference / reference_val * 100.0 if reference_val != 0.0 else np.inf
+        ),
+    }
+
+
 def compare_capacity_statistics(reference_df, network_df, source_name):
     comparison_results = []
 
@@ -52,19 +68,13 @@ def compare_capacity_statistics(reference_df, network_df, source_name):
         if network_val == 0.0 and reference_val == 0.0:
             continue
 
-        abs_diff = network_val - reference_val
-        rel_diff = (
-            (abs_diff / reference_val * 100.0) if reference_val != 0.0 else np.inf
-        )
-
         comparison_results.append(
             {
                 "region": region,
                 "carrier": carrier,
                 "network_capacity": network_val,
                 "reference_capacity": reference_val,
-                "absolute_difference": abs_diff,
-                "relative_difference_pct": rel_diff,
+                **compute_differences(network_val, reference_val),
                 "reference_source": source_name,
             }
         )
@@ -79,6 +89,7 @@ def compare_capacity_statistics(reference_df, network_df, source_name):
                 "carrier",
                 "network_capacity",
                 "reference_capacity",
+                "difference",
                 "absolute_difference",
                 "relative_difference_pct",
                 "reference_source",
@@ -106,18 +117,12 @@ def compare_demand_statistics(reference_df, network_df, source_name):
         if network_val == 0.0 and reference_val == 0.0:
             continue
 
-        abs_diff = network_val - reference_val
-        rel_diff = (
-            (abs_diff / reference_val * 100.0) if reference_val != 0.0 else np.inf
-        )
-
         comparison_results.append(
             {
                 "region": region,
                 "network_demand": network_val,
                 "reference_demand": reference_val,
-                "absolute_difference": abs_diff,
-                "relative_difference_pct": rel_diff,
+                **compute_differences(network_val, reference_val),
                 "reference_source": source_name,
             }
         )
@@ -131,6 +136,7 @@ def compare_demand_statistics(reference_df, network_df, source_name):
                 "region",
                 "network_demand",
                 "reference_demand",
+                "difference",
                 "absolute_difference",
                 "relative_difference_pct",
                 "reference_source",
@@ -168,19 +174,13 @@ def compare_generation_statistics(reference_df, network_df, source_name):
         if network_val == 0.0 and reference_val == 0.0:
             continue
 
-        abs_diff = network_val - reference_val
-        rel_diff = (
-            (abs_diff / reference_val * 100.0) if reference_val != 0.0 else np.inf
-        )
-
         comparison_results.append(
             {
                 "region": region,
                 "carrier": carrier,
                 "network_generation": network_val,
                 "reference_generation": reference_val,
-                "absolute_difference": abs_diff,
-                "relative_difference_pct": rel_diff,
+                **compute_differences(network_val, reference_val),
                 "reference_source": source_name,
             }
         )
@@ -195,6 +195,7 @@ def compare_generation_statistics(reference_df, network_df, source_name):
                 "carrier",
                 "network_generation",
                 "reference_generation",
+                "difference",
                 "absolute_difference",
                 "relative_difference_pct",
                 "reference_source",
