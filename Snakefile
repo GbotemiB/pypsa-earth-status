@@ -53,15 +53,22 @@ rule clean:
 
 
 rule download_ember_data:
+    input:
+        ember_data=storage.HTTP(
+            "https://storage.googleapis.com/emb-prod-bkt-publicdata/"
+            "public-downloads/yearly_full_release_long_format.csv"
+        ),
     output:
-        "data/ember/yearly_full_release_long_format.csv",
-    log:
-        "logs/download_ember_data.log",
+        ember_data="data/ember/yearly_full_release_long_format.csv",
     run:
-        from helpers import progress_retrieve
-
-        url = "https://storage.googleapis.com/emb-prod-bkt-publicdata/public-downloads/yearly_full_release_long_format.csv"
-        progress_retrieve(url, output[0])
+        os.makedirs(
+            os.path.dirname(output.ember_data),
+            exist_ok=True,
+        )
+        copyfile(
+            input.ember_data,
+            output.ember_data,
+        )
 
 
 rule build_reference_demand_ember:
@@ -322,7 +329,7 @@ rule build_health_status:
         year=config["network_validation"]["year"],
         datasets=config.get("datasets", {}),
         fallback_pypsa_earth_version=config["network_validation"].get(
-            "fallback_pypsa_earth_version", "unknown"
+            "fallback_pypsa_earth_version", ""
         ),
     script:
         "scripts/build_health_status.py"

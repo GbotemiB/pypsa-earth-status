@@ -39,6 +39,7 @@ HEALTH_STATUS_COLUMNS = [
     "grade",
     "pypsa_earth_version",
     "year",
+    "git_commit",
 ]
 
 
@@ -177,12 +178,14 @@ def compile_health_status(snakemake):
             logger.error(f"  Error loading network for {scenario_key}: {e}. Skipping.")
             continue
 
-        # Extract pypsa-earth version from network metadata
+        # Extract pypsa-earth provenance from network metadata. PyPSA-Earth stores
+        # its config there, which carries the version and, since the commit is
+        # recorded at configuration time, a "git_commit" entry as well.
+        network_meta = n.meta if isinstance(getattr(n, "meta", None), dict) else {}
         pypsa_earth_version = (
-            n.meta.get("version", fallback_version)
-            if isinstance(getattr(n, "meta", None), dict)
-            else fallback_version
+            network_meta["version"] if "version" in network_meta else fallback_version
         )
+        git_commit = network_meta["git_commit"] if "git_commit" in network_meta else ""
 
         # Resolve target countries for this scenario
         if explicit_countries is not None:
@@ -351,6 +354,7 @@ def compile_health_status(snakemake):
                         "grade": get_grade(demand_error_pct),
                         "pypsa_earth_version": pypsa_earth_version,
                         "year": year,
+                        "git_commit": git_commit,
                     }
                 )
 
@@ -410,6 +414,7 @@ def compile_health_status(snakemake):
                         "grade": get_grade(cap_dev_pct),
                         "pypsa_earth_version": pypsa_earth_version,
                         "year": year,
+                        "git_commit": git_commit,
                     }
                 )
 
@@ -429,6 +434,7 @@ def compile_health_status(snakemake):
                         "grade": "",
                         "pypsa_earth_version": pypsa_earth_version,
                         "year": year,
+                        "git_commit": git_commit,
                     }
                 )
 
@@ -491,6 +497,7 @@ def compile_health_status(snakemake):
                         "grade": get_grade(gen_dev_pct),
                         "pypsa_earth_version": pypsa_earth_version,
                         "year": year,
+                        "git_commit": git_commit,
                     }
                 )
 
@@ -510,6 +517,7 @@ def compile_health_status(snakemake):
                         "grade": "",
                         "pypsa_earth_version": pypsa_earth_version,
                         "year": year,
+                        "git_commit": git_commit,
                     }
                 )
 
