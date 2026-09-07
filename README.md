@@ -155,6 +155,23 @@ If you want to validate multiple solved networks (scenarios) across multiple cou
    ```
 
 4. **Review Results:**
-   The tidy long-format comparison is exported to `results/health_status.csv`. Each row compares a single scenario, country, and metric against a single reference source, detailing relative error deviations and validation grades (`A`, `B`, `C`, `D`).
+   The tidy long-format comparison is exported to `results/health_status.csv`. Each row compares a single scenario, country, and metric against a single reference source, detailing the relative error deviation and a validation grade.
 
-   Unlike the other validation outputs, this file is not written to a per-validation subfolder. It is a global tracker kept at a single stable path so that results accumulate across scenarios and validation configurations: each run replaces only the rows for the scenario-country pairs it just validated and leaves all other rows untouched. Running the rule with no `networks:` configured therefore leaves any existing results unchanged.
+   Grades are assigned from the absolute relative deviation between the PyPSA value and the reference value:
+
+   | Grade | Deviation from reference |
+   | :--- | :--- |
+   | `A` | below 5% |
+   | `B` | 5% to below 10% |
+   | `C` | 10% to below 20% |
+   | `D` | 20% or above |
+   | *(blank)* | metric is not graded |
+
+   The mean absolute error metrics (`capacity_mae_pct` and `generation_share_mae`) are deliberately left ungraded. They report a deviation, but it summarises the average per-carrier spread rather than a deviation from one reference figure, so their `reference_value` is empty and the grade thresholds above do not apply to them.
+
+   This output supports two distinct applications:
+
+   1. **Validating a custom set of scenarios.** Any collection of networks listed under `networks:` is validated in a single run, so an arbitrary set of countries, regions, or model configurations can be checked together rather than one network at a time.
+   2. **Tracking the accuracy status of the PyPSA-Earth workflow.** Because results persist across runs, the file builds up into an overall picture of how model output compares against reference data over time and across scenarios.
+
+   To serve the second purpose, and unlike the other validation outputs, this file is not written to a per-validation subfolder. It is a global tracker kept at a single stable path so that results accumulate across scenarios and validation configurations: each run replaces only the rows for the scenario-country pairs it just validated and leaves all other rows untouched. Running the rule with no `networks:` configured therefore leaves any existing results unchanged.
