@@ -144,7 +144,7 @@ def compile_health_status(snakemake):
         "onwind",
         "offwind",
         "hydro",
-        "ccgt",
+        "gas",
         "coal",
         "nuclear",
         "oil",

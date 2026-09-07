@@ -33,7 +33,7 @@ def clean_generation_ember(df_ember):
     mapping = {
         "Bioenergy": "biomass",
         "Coal": "coal",
-        "Gas": "CCGT",
+        "Gas": "gas",
         "Hydro": "hydro",
         "Nuclear": "nuclear",
         "Other Fossil": "oil",

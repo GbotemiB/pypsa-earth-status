@@ -35,7 +35,7 @@ IRENA_TECHNOLOGY_MAPPING = {
     "Geothermal energy": "geothermal",
     "Coal and peat": "coal",
     "Oil": "oil",
-    "Natural gas": "CCGT",
+    "Natural gas": "gas",
     "Fossil fuels n.e.s.": "oil",
     "Nuclear": "nuclear",
     "Other non-renewable energy": "other",
@@ -415,8 +415,10 @@ def harmonize_carrier_names(series):
             "hard coal": "coal",
             "lignite": "coal",
             "brown coal": "coal",
-            "gas": "ccgt",
-            "ocgt": "ccgt",
+            # Reference sources report a single gas category, so network-side
+            # CCGT and OCGT are aggregated rather than conflated with each other.
+            "ccgt": "gas",
+            "ocgt": "gas",
             "multiple": "other",
         }
     )
